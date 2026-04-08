@@ -1,0 +1,61 @@
+{
+  "_comment": "TER & bus schedules for the Vosges hiking planner. Update departure times here without touching code. Structure: { ter: { routeId: [...departures] }, bus: { routeId: [...departures] } }. Source: SNCF TER Grand Est / Fluo Grand Est — verify at ter.sncf.com/grand-est and fluo.eu. To pull live data, see the SNCF open data API at data.sncf.com (GTFS export for TER Grand Est).",
+  "lastUpdated": "2026-04-01",
+  "ter": {
+    "bruche": [
+      {"dep": "07:35", "arr": "Molsheim 07:57 / Schirmeck 08:31", "days": "Daily"},
+      {"dep": "09:35", "arr": "Molsheim 09:57 / Schirmeck 10:31", "days": "Daily"},
+      {"dep": "13:35", "arr": "Molsheim 13:57 / Schirmeck 14:31", "days": "Daily"},
+      {"dep": "17:35", "arr": "Molsheim 17:57 / Schirmeck 18:31", "days": "Daily"},
+      {"dep": "19:35", "arr": "Molsheim 19:57 / Schirmeck 20:31", "days": "Mon-Fri"}
+    ],
+    "obernai": [
+      {"dep": "08:24", "arr": "Obernai 08:57 / Barr 09:07", "days": "Daily"},
+      {"dep": "12:24", "arr": "Obernai 12:57 / Barr 13:07", "days": "Daily"},
+      {"dep": "16:24", "arr": "Obernai 16:57 / Barr 17:07", "days": "Daily"},
+      {"dep": "18:24", "arr": "Obernai 18:57 / Barr 19:07", "days": "Daily"}
+    ],
+    "rhine": [
+      {"dep": "07:31", "arr": "Sélestat 07:56 / Colmar 08:15 / Mulhouse 08:38", "days": "Daily"},
+      {"dep": "09:31", "arr": "Sélestat 09:56 / Colmar 10:15 / Mulhouse 10:38", "days": "Daily"},
+      {"dep": "13:31", "arr": "Sélestat 13:56 / Colmar 14:15 / Mulhouse 14:38", "days": "Daily"},
+      {"dep": "17:31", "arr": "Sélestat 17:56 / Colmar 18:15 / Mulhouse 18:38", "days": "Daily"}
+    ],
+    "saintdie": [
+      {"dep": "08:32 (from Sélestat)", "arr": "Saint-Dié 10:06", "days": "Daily"},
+      {"dep": "12:32 (from Sélestat)", "arr": "Saint-Dié 14:06", "days": "Daily"},
+      {"dep": "16:32 (from Sélestat)", "arr": "Saint-Dié 18:06", "days": "Daily"}
+    ],
+    "paris": [
+      {"dep": "07:08", "arr": "Saverne 07:40 / Sarrebourg 08:02", "days": "Daily"},
+      {"dep": "09:09", "arr": "Saverne 09:42 / Sarrebourg 10:02", "days": "Daily"},
+      {"dep": "17:07", "arr": "Saverne 17:40 / Sarrebourg 18:02", "days": "Daily"}
+    ],
+    "wissembourg": [
+      {"dep": "06:55", "arr": "Haguenau 07:12 / Wissembourg 07:50", "days": "Daily"},
+      {"dep": "12:55", "arr": "Haguenau 13:12 / Wissembourg 13:50", "days": "Daily"},
+      {"dep": "16:55", "arr": "Haguenau 17:12 / Wissembourg 17:50", "days": "Daily"}
+    ]
+  },
+  "bus": {
+    "fluo220": [
+      {"dep": "09:10", "arr": "Struthof 09:35 / Donon 10:05", "days": "Sat, Sun & Jul–Aug daily"},
+      {"dep": "14:05", "arr": "Struthof 14:30 / Donon 15:00", "days": "Sat, Sun & Jul–Aug daily"}
+    ],
+    "fluo201": [
+      {"dep": "08:15", "arr": "La Petite Pierre 08:58", "days": "Mon–Sat"},
+      {"dep": "12:05", "arr": "La Petite Pierre 12:48", "days": "Mon–Sat"},
+      {"dep": "10:05", "arr": "La Petite Pierre 10:48", "days": "Sun & holidays"}
+    ],
+    "fluo320": [
+      {"dep": "07:55", "arr": "Munster 08:28 / Schlucht 09:10", "days": "Mon–Sat"},
+      {"dep": "10:10", "arr": "Munster 10:43 / Schlucht 11:25", "days": "Daily"},
+      {"dep": "16:00", "arr": "Munster 16:33 / Schlucht 17:15", "days": "Daily"}
+    ],
+    "fluo230": [
+      {"dep": "07:42", "arr": "Lièpvre 08:05 / Villé 08:35", "days": "Mon–Fri"},
+      {"dep": "12:00", "arr": "Lièpvre 12:23 / Villé 12:53", "days": "Mon–Sat"},
+      {"dep": "09:30", "arr": "Lièpvre 09:53 / Villé 10:23", "days": "Sat–Sun"}
+    ]
+  }
+}

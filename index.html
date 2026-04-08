@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vosges Hiking — Trails & Transport from Strasbourg</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="sidebar">
+  <div class="hdr">
+    <div class="ey">Hiking Planner · Vosges</div>
+    <h1>Les Vosges</h1>
+    <p class="sub">Real OSM trail geometry. Click any trail for stops within 5 km.</p>
+  </div>
+
+  <div class="sec">
+    <div class="st">Max travel time from Strasbourg</div>
+    <div class="sl-lbls"><span>0</span><span>2 h</span></div>
+    <input type="range" id="tSlider" min="10" max="120" value="60" step="5">
+    <div class="tdisp"><span id="tVal">60</span> min<small id="tDesc">~1 h — deep Vosges</small></div>
+    <div class="rsumm"><strong id="sCnt">—</strong> stops reachable &nbsp;·&nbsp; <strong id="qCnt">—</strong> quiet zones</div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Layers</div>
+    <div class="trow">
+      <span class="tlbl"><span class="tln" style="background:var(--gr)"></span>GR trails (live OSM)</span>
+      <label class="tog"><input type="checkbox" id="togGR" checked onchange="setLayer('gr',this.checked)"><span class="tk"></span></label>
+    </div>
+    <div class="trow">
+      <span class="tlbl"><span class="tln" style="background:var(--cv)"></span>Club Vosgien circuits</span>
+      <label class="tog"><input type="checkbox" id="togCV" checked onchange="setLayer('cv',this.checked)"><span class="tk"></span></label>
+    </div>
+    <div class="trow">
+      <span class="tlbl"><span class="tln" style="background:#e05a00"></span>TER train lines</span>
+      <label class="tog"><input type="checkbox" checked onchange="setLayer('rail',this.checked)"><span class="tk"></span></label>
+    </div>
+    <div class="trow">
+      <span class="tlbl"><span class="tln" style="background:#7c3aed"></span>Bus routes (Fluo)</span>
+      <label class="tog"><input type="checkbox" checked onchange="setLayer('bus',this.checked)"><span class="tk"></span></label>
+    </div>
+    <div class="trow">
+      <span class="tlbl"><span class="tdot" style="background:#555"></span>All stops</span>
+      <label class="tog"><input type="checkbox" checked onchange="setLayer('stops',this.checked)"><span class="tk"></span></label>
+    </div>
+    <div class="trow">
+      <span class="tlbl"><span class="tdot" style="background:#ef4444"></span>Crowd zones</span>
+      <label class="tog"><input type="checkbox" checked onchange="setLayer('crowd',this.checked)"><span class="tk"></span></label>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Legend</div>
+    <div class="lg-grp">
+      <div class="lgt">GR trails — real OSM geometry</div>
+      <div class="lgi"><span class="lgsw" style="background:var(--gr)"></span>GR5 — ridge (crêtes)</div>
+      <div class="lgi"><span class="lgsw" style="background:var(--gr);opacity:.65"></span>GR53 · GR531 · GR532</div>
+      <div class="lgi"><span class="lgsw" style="background:var(--cv)"></span>Club Vosgien circuit</div>
+    </div>
+    <div class="lg-grp" style="margin-top:8px">
+      <div class="lgt">Train reach from Strasbourg</div>
+      <div class="tramp"></div>
+      <div class="tramp-l"><span>15'</span><span>30'</span><span>60'</span><span>90'</span><span>2h</span></div>
+    </div>
+    <div class="lg-grp" style="margin-top:8px">
+      <div class="lgt">Trail footfall</div>
+      <div class="lgi"><span class="lgsw" style="background:rgba(34,197,94,.4);border:1px solid rgba(34,197,94,.7)"></span>Quiet</div>
+      <div class="lgi"><span class="lgsw" style="background:rgba(234,179,8,.4);border:1px solid rgba(234,179,8,.7)"></span>Moderate</div>
+      <div class="lgi"><span class="lgsw" style="background:rgba(239,68,68,.4);border:1px solid rgba(239,68,68,.7)"></span>Busy / crowded</div>
+    </div>
+  </div>
+
+  <!-- Plan My Day panel -->
+  <div id="planPanel" class="sec">
+    <div class="st">Plan my day</div>
+    <select id="planStation">
+      <option value="">Choose departure station…</option>
+    </select>
+    <input type="time" id="planReturn" value="18:00" title="Latest return to Strasbourg">
+    <button id="planBtn">Find trails I can hike</button>
+    <div id="planResults"></div>
+  </div>
+
+  <div class="sec">
+    <div class="st">Reachable stops</div>
+    <div id="slist"></div>
+  </div>
+
+  <div class="ftr">
+    Trails: <a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> / <a href="https://hiking.waymarkedtrails.org" target="_blank">Waymarked Trails</a> · Info: <a href="https://www.gr-infos.com" target="_blank">gr-infos.com</a> · Rail: <a href="https://ter.sncf.com/grand-est" target="_blank">TER Grand Est</a> · Bus: <a href="https://www.fluo.eu" target="_blank">Fluo</a>
+  </div>
+</div>
+
+<div id="map">
+  <div id="loadOverlay">
+    <div class="spinner"></div>
+    <div id="loadMsg">Chargement des sentiers…</div>
+    <div id="loadSub">Fetching real trail geometry from OpenStreetMap</div>
+    <div id="loadErr"></div>
+    <button id="retryBtn" onclick="loadTrails()">Retry</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data/stops.js"></script>
+<script src="data/trails.js"></script>
+<script src="data/transport.js"></script>
+<script src="data/crowds.js"></script>
+<script src="map.js"></script>
+</body>
+</html>
