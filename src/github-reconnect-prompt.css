@@ -1,0 +1,152 @@
+/* GitHub Reconnect Prompt Styles */
+
+.github-reconnect-prompt {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  max-width: 400px;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+  border: 2px solid #ff6b6b;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.prompt-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prompt-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.prompt-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #c92a2a;
+  line-height: 1.4;
+}
+
+.prompt-message {
+  margin: 0;
+  font-size: 14px;
+  color: #5c2e2e;
+  line-height: 1.5;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.btn-primary {
+  background-color: #c92a2a;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #a61e1e;
+  box-shadow: 0 2px 8px rgba(201, 42, 42, 0.3);
+}
+
+.btn-primary:active {
+  background-color: #922020;
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background-color: rgba(255, 255, 255, 0.8);
+  color: #5c2e2e;
+  border: 1px solid rgba(201, 42, 42, 0.2);
+}
+
+.btn-secondary:hover {
+  background-color: white;
+  border-color: rgba(201, 42, 42, 0.4);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .github-reconnect-prompt {
+    background: linear-gradient(135deg, #3d1e1e 0%, #5c2e2e 100%);
+    border-color: #ff8787;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.25);
+  }
+
+  .prompt-message {
+    color: #ffb3b3;
+  }
+
+  .btn-secondary {
+    background-color: rgba(60, 30, 30, 0.8);
+    color: #ffb3b3;
+    border-color: rgba(255, 135, 135, 0.3);
+  }
+
+  .btn-secondary:hover {
+    background-color: rgba(80, 40, 40, 0.9);
+    border-color: rgba(255, 135, 135, 0.5);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .github-reconnect-prompt {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid #ff6b6b;
+  }
+
+  .prompt-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
