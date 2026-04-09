@@ -308,6 +308,36 @@ async function overpassFetch(query) {
   throw new Error('All Overpass mirrors failed: ' + (lastErr ? lastErr.message : 'unknown'));
 }
 
+// ── TRAIL CACHE (localStorage) ───────────────────────────────────
+const CACHE_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CACHE_VER  = 'v1';
+const CACHE_KEY_GR = 'vhp_gr_' + CACHE_VER;
+const CACHE_KEY_CV = 'vhp_cv_' + CACHE_VER;
+
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (Date.now() - item.ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
+    return item.data;
+  } catch (e) { return null; }
+}
+function cacheSet(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data })); } catch (e) {}
+}
+function cacheClear() { localStorage.removeItem(CACHE_KEY_GR); localStorage.removeItem(CACHE_KEY_CV); }
+function cacheAge(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const item = JSON.parse(raw);
+    const days = ((Date.now() - item.ts) / 86400000);
+    return days < 1 ? 'today' : Math.round(days) + 'd ago';
+  } catch (e) { return null; }
+}
+window.reloadFreshTrails = function() { cacheClear(); loadTrails(); };
+
 // ── LOAD ALL TRAILS FROM OVERPASS ────────────────────────────────
 async function loadTrails() {
   const overlay  = document.getElementById('loadOverlay');
@@ -345,11 +375,25 @@ async function loadTrails() {
     ');\nout geom;';
 
   try {
-    msgEl.textContent = 'Loading GR routes from OpenStreetMap\u2026';
-    const [grData, cvData] = await Promise.all([
-      overpassFetch(GR_QUERY),
-      overpassFetch(CV_QUERY).catch(function() { return { elements: [] }; }),
-    ]);
+    let grData = cacheGet(CACHE_KEY_GR);
+    let cvData = cacheGet(CACHE_KEY_CV);
+    const fromCache = !!(grData && cvData);
+
+    if (fromCache) {
+      const age = cacheAge(CACHE_KEY_GR);
+      msgEl.textContent = 'Loaded from local cache (' + age + ')';
+      document.getElementById('loadSub').textContent = 'Tip: click Reload to fetch fresh data from OpenStreetMap';
+    } else {
+      msgEl.textContent = 'Loading GR routes from OpenStreetMap\u2026';
+      const fetched = await Promise.all([
+        overpassFetch(GR_QUERY),
+        overpassFetch(CV_QUERY).catch(function() { return { elements: [] }; }),
+      ]);
+      grData = fetched[0];
+      cvData = fetched[1];
+      cacheSet(CACHE_KEY_GR, grData);
+      cacheSet(CACHE_KEY_CV, cvData);
+    }
 
     msgEl.textContent = 'Drawing ' + ((grData.elements || []).length + (cvData.elements || []).length) + ' routes\u2026';
 
@@ -398,7 +442,15 @@ async function loadTrails() {
 
     if (document.getElementById('togGR').checked) grLayer.addTo(map);
     if (document.getElementById('togCV').checked) cvLayer.addTo(map);
-    overlay.style.display = 'none';
+
+    if (fromCache) {
+      retryBtn.textContent = 'Reload from OpenStreetMap';
+      retryBtn.onclick = window.reloadFreshTrails;
+      retryBtn.style.display = 'block';
+      setTimeout(function() { overlay.style.display = 'none'; }, 1200);
+    } else {
+      overlay.style.display = 'none';
+    }
 
   } catch (err) {
     console.error('Trail loading failed:', err);
