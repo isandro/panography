@@ -1,16 +1,16 @@
-"""app.py — Vosges Hiking Planner as a Python desktop app.
+"""app.py — Vosges Hiking Planner desktop app.
 
 Runs a tiny Flask server (static files + Overpass proxy) and opens the UI
-in a native window via pywebview. Single entry point: `python app.py`.
+in a native window via pywebview. Works both as a plain Python script and
+as a PyInstaller-bundled .app / .exe.
 
-Install:
-    pip install -r requirements.txt
-
-Run:
-    python app.py
+Install:  pip install -r requirements.txt
+Run:      python app.py
+Build:    ./build.sh   (produces dist/Vosges Hiking Planner.app on macOS)
 """
 
 import os
+import sys
 import threading
 
 import requests
@@ -18,7 +18,8 @@ import webview
 from flask import Flask, jsonify, request, send_from_directory
 
 PORT = 5173
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# When frozen by PyInstaller, static files are extracted to sys._MEIPASS.
+ROOT = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 MIRRORS = [
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
