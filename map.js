@@ -242,9 +242,12 @@ function drawRelation(rel, col, weight, opacity, layer, polylineStore) {
   rel.members.forEach(function(member) {
     if (member.type === 'way' && member.geometry && member.geometry.length > 1) {
       const coords = member.geometry.map(function(p) { return [p.lat, p.lon]; });
-      const p = L.polyline(coords, { color: col, weight: weight, opacity: opacity, interactive: true });
-      p.on('mouseover', function() { this.setStyle({ weight: weight + 2, opacity: 1 }); });
-      p.on('mouseout',  function() { this.setStyle({ weight: weight, opacity: opacity }); });
+      // IGN-style white halo for contrast against terrain shading
+      const halo = L.polyline(coords, { color: '#ffffff', weight: weight + 3, opacity: 0.92, interactive: false });
+      halo.addTo(layer);
+      const p = L.polyline(coords, { color: col, weight: weight, opacity: opacity, interactive: true, lineCap: 'round', lineJoin: 'round' });
+      p.on('mouseover', function() { this.setStyle({ weight: weight + 2, opacity: 1 }); halo.setStyle({ weight: weight + 5 }); });
+      p.on('mouseout',  function() { this.setStyle({ weight: weight, opacity: opacity }); halo.setStyle({ weight: weight + 3 }); });
       p._relCoords = coords;
       polylineStore.push(p);
       p.addTo(layer);
@@ -473,9 +476,11 @@ async function loadTrails() {
 function drawFallbackCV() {
   CV_TRAILS.forEach(function(t) {
     const coords = t.coords;
-    const p = L.polyline(coords, { color: t.col, weight: t.w, opacity: .7, dashArray: '4 3', interactive: true });
+    // White halo for IGN-style contrast
+    L.polyline(coords, { color: '#ffffff', weight: t.w + 3, opacity: 0.92, dashArray: '4 3', interactive: false }).addTo(cvLayer);
+    const p = L.polyline(coords, { color: t.col, weight: t.w, opacity: .85, dashArray: '4 3', interactive: true, lineCap: 'round', lineJoin: 'round' });
     p.on('mouseover', function() { this.setStyle({ weight: t.w + 2, opacity: 1 }); });
-    p.on('mouseout',  function() { this.setStyle({ weight: t.w, opacity: .7, dashArray: '4 3' }); });
+    p.on('mouseout',  function() { this.setStyle({ weight: t.w, opacity: .85, dashArray: '4 3' }); });
     p._relCoords  = coords;
     p.trailName   = t.name;
     p.trailCoords = coords;

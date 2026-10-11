@@ -185,7 +185,9 @@
 
   // ── UTM GRID ───────────────────────────────────────────────────
   function drawUtmGrid(ctx, comp, scale) {
-    var step = scale === 10000 ? 100 : 500;
+    // Minor grid cadence (every line drawn); major cadence (labelled, bolder).
+    var step      = scale === 10000 ? 100  : 500;
+    var labelStep = scale === 10000 ? 500  : 500;
     var b = comp.bounds;
     var corners = [
       latLonToUtm(b.getNorth(), b.getWest()),
@@ -200,50 +202,52 @@
     var zone = corners[0].zone;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 60, 150, 0.4)';
-    ctx.lineWidth = 1;
-    ctx.font = (scale === 10000 ? '14px' : '12px') + ' sans-serif';
-    ctx.fillStyle = 'rgba(0, 40, 110, 0.95)';
+    ctx.font = (scale === 10000 ? '13px' : '12px') + ' sans-serif';
 
     function label(text, x, y) {
       ctx.save();
       var w = ctx.measureText(text).width;
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillRect(x - 2, y - 10, w + 4, 13);
-      ctx.fillStyle = 'rgba(0, 40, 110, 0.95)';
+      ctx.fillStyle = 'rgba(255,255,255,0.80)';
+      ctx.fillRect(x - 2, y - 11, w + 4, 14);
+      ctx.fillStyle = 'rgba(0, 40, 110, 1)';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(text, x, y);
       ctx.restore();
     }
 
+    function strokeStyle(isMajor) {
+      ctx.strokeStyle = isMajor ? 'rgba(0, 50, 140, 0.55)' : 'rgba(0, 50, 140, 0.22)';
+      ctx.lineWidth   = isMajor ? 1.3 : 0.7;
+    }
+
     // Vertical lines (constant easting)
     for (var e = Math.ceil(minE / step) * step; e <= maxE; e += step) {
+      var isMajor = Math.round(e) % labelStep === 0;
       var p1 = utmToLatLon(e, maxN, zone, true);
       var p2 = utmToLatLon(e, minN, zone, true);
+      strokeStyle(isMajor);
       ctx.beginPath();
       ctx.moveTo(comp.toX(p1.lon), comp.toY(p1.lat));
       ctx.lineTo(comp.toX(p2.lon), comp.toY(p2.lat));
       ctx.stroke();
-      label(formatKm(e), comp.toX(p1.lon) + 3, 14);
+      if (isMajor) label(formatCoord(e), comp.toX(p1.lon) + 3, 14);
     }
     // Horizontal lines (constant northing)
     for (var n = Math.ceil(minN / step) * step; n <= maxN; n += step) {
+      var isMajorN = Math.round(n) % labelStep === 0;
       var h1 = utmToLatLon(minE, n, zone, true);
       var h2 = utmToLatLon(maxE, n, zone, true);
+      strokeStyle(isMajorN);
       ctx.beginPath();
       ctx.moveTo(comp.toX(h1.lon), comp.toY(h1.lat));
       ctx.lineTo(comp.toX(h2.lon), comp.toY(h2.lat));
       ctx.stroke();
-      label(formatKm(n), 4, comp.toY(h1.lat) - 3);
+      if (isMajorN) label(formatCoord(n), 4, comp.toY(h1.lat) - 3);
     }
     ctx.restore();
   }
 
-  function formatKm(v) {
-    var km = Math.floor(v / 1000);
-    var rem = Math.round(v - km * 1000);
-    return rem === 0 ? km + 'k' : (km + '.' + Math.round(rem / 100)) + 'k';
-  }
+  function formatCoord(v) { return Math.round(v).toString(); }
 
   // ── POI MARKERS ────────────────────────────────────────────────
   function drawPois(ctx, comp, pois) {

@@ -6,7 +6,7 @@
 const TRAIL_META = {
   'GR 5': {
     label: 'GR5 — Traversée du Massif des Vosges (crêtes)',
-    col: '#c0392b', w: 3.5, crowd: 'moderate',
+    col: '#c0392b', w: 4, crowd: 'moderate',
     dist: '~430 km Wissembourg–Belfort', diff: 'Difficult', days: '16–20 days',
     desc: 'The main north–south ridgeline route of the Vosges, running along the watershed from the Vosges du Nord to the Ballons. Passes the highest summits (Hohneck 1363 m, Grand Ballon 1424 m). Road access at every col makes it popular — busier at summits, quieter between them.',
     links: [
@@ -17,7 +17,7 @@ const TRAIL_META = {
   },
   'GR 53': {
     label: 'GR53 — Vosges du Nord: Wissembourg → Saverne',
-    col: '#c0392b', w: 3, crowd: 'quiet',
+    col: '#c0392b', w: 3.5, crowd: 'quiet',
     dist: '164 km', diff: 'Moderate', days: '6–8 days',
     desc: 'Traverses the PNR Vosges du Nord from Wissembourg south through pink sandstone formations, beech-oak forests and medieval castles. Significantly quieter than the GR5 ridge.',
     links: [
@@ -28,7 +28,7 @@ const TRAIL_META = {
   },
   'GR 531': {
     label: 'GR531 — Traversée Alsace: Soultz-sous-Forêts → Leymen',
-    col: '#c0392b', w: 3, crowd: 'moderate',
+    col: '#c0392b', w: 3.5, crowd: 'moderate',
     dist: '350 km', diff: 'Moderate–Difficult', days: '12–16 days',
     desc: 'North–south Alsace traverse from the northern plain through Champ du Feu, then along the high ridge via Hohneck and Grand Ventron to Masevaux. The Sentier des Roches section near Munster is one of the most dramatic stretches. Marked with a blue rectangle.',
     links: [
@@ -38,7 +38,7 @@ const TRAIL_META = {
   },
   'GR 532': {
     label: 'GR532 — Crête des Vosges et hautes vallées: 510 km',
-    col: '#c0392b', w: 3, crowd: 'quiet',
+    col: '#c0392b', w: 3.5, crowd: 'quiet',
     dist: '510 km', diff: 'Moderate', days: '18–22 days',
     desc: 'The longest GR in the Vosges. Starts in the PNR Vosges du Nord and runs south through the Bruche valley, past Sainte-Odile and through the Villé valley before reaching the Ballons. The valley sections are genuinely empty. Marked with a yellow rectangle.',
     links: [
@@ -54,7 +54,7 @@ const TRAIL_META = {
 const CV_TRAILS = [
   {
     name: 'Circuit du Donon — Grandfontaine',
-    col: '#2471a3', w: 2.5, crowd: 'quiet', dist: '14 km', diff: 'Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'quiet', dist: '14 km', diff: 'Moderate', days: 'Full day',
     desc: 'Circular route to the Gaulish/Roman Donon summit (1009 m). Reached by TER to Schirmeck + Fluo 220 bus. Far less visited than Sainte-Odile despite equal scenery.',
     links: [
       {t: 'AllTrails — Le Donon depuis Grandfontaine', u: 'https://www.alltrails.com/trail/france/bas-rhin/le-donon-depuis-grandfontaine'},
@@ -65,7 +65,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Hohwald — Andlau — Spesbourg circuit',
-    col: '#2471a3', w: 2.5, crowd: 'quiet', dist: '18 km', diff: 'Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'quiet', dist: '18 km', diff: 'Moderate', days: 'Full day',
     desc: 'From Barr station up through the Andlau abbey and into the quiet Hohwald valley, passing the ruined Spesbourg and Andlau castles. Barely visited despite being 10 km from busy Obernai.',
     links: [
       {t: 'AllTrails — Circuit du Hohwald depuis Barr', u: 'https://www.alltrails.com/trail/france/bas-rhin/circuit-du-hohwald'},
@@ -76,7 +76,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Tour de la Petite Pierre — sandstone circuits',
-    col: '#2471a3', w: 2.5, crowd: 'moderate', dist: '16 km', diff: 'Easy–Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'moderate', dist: '16 km', diff: 'Easy–Moderate', days: 'Full day',
     desc: 'Loop through the pink sandstone of the Petite Pierre forest. TER to Saverne then Fluo 201. Town centre busy; northern circuits beyond Lichtenberg are peaceful.',
     links: [
       {t: 'AllTrails — Tour de La Petite Pierre',  u: 'https://www.alltrails.com/trail/france/bas-rhin/boucle-de-la-petite-pierre'},
@@ -86,7 +86,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Sentier des Roches — Munster / Soultzeren',
-    col: '#2471a3', w: 2.5, crowd: 'moderate', dist: '8 km', diff: 'Moderate (scrambling)', days: 'Half-day',
+    col: '#2471a3', w: 3, crowd: 'moderate', dist: '8 km', diff: 'Moderate (scrambling)', days: 'Half-day',
     desc: 'Narrow path carved into a rocky escarpment above Munster valley. Some via-ferrata sections. Dramatic views. TER to Colmar then Fluo 320 bus to Munster.',
     links: [
       {t: 'AllTrails — Sentier des Roches',    u: 'https://www.alltrails.com/trail/france/haut-rhin/sentier-des-roches-soultzeren'},
@@ -96,7 +96,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Tour du Hohneck via Gaschney',
-    col: '#2471a3', w: 2.5, crowd: 'quiet', dist: '18 km', diff: 'Moderate–Difficult', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'quiet', dist: '18 km', diff: 'Moderate–Difficult', days: 'Full day',
     desc: 'Approaches Hohneck (1363 m) from the Gaschney valley — far fewer hikers than the road approach. TER to Colmar then Fluo 320 to Munster.',
     links: [
       {t: 'AllTrails — Hohneck depuis Gaschney', u: 'https://www.alltrails.com/trail/france/haut-rhin/hohneck-depuis-gaschney'},
@@ -106,7 +106,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Circuit Tanet – Gazon du Faing (peat bog)',
-    col: '#2471a3', w: 2.5, crowd: 'quiet', dist: '13 km', diff: 'Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'quiet', dist: '13 km', diff: 'Moderate', days: 'Full day',
     desc: 'Wind-swept Tanet plateau and peat bog. One of the wildest spots in the Vosges. Far quieter than nearby Lac Blanc. TER to Colmar then Fluo 320.',
     links: [
       {t: 'AllTrails — Tanet et Gazon du Faing', u: 'https://www.alltrails.com/trail/france/haut-rhin/tanet-gazon-du-faing'},
@@ -116,7 +116,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Sentier des Châteaux forts — Ribeauvillé to Haut-Koenigsbourg',
-    col: '#2471a3', w: 2.5, crowd: 'moderate', dist: '19 km', diff: 'Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'moderate', dist: '19 km', diff: 'Moderate', days: 'Full day',
     desc: 'Ridge traverse linking three medieval castles above Ribeauvillé. Castle interiors busy; forest trail between them sees few people. TER to Sélestat then Fluo 106.',
     links: [
       {t: 'AllTrails — Sentier des Châteaux forts', u: 'https://www.alltrails.com/trail/france/haut-rhin/sentier-des-chateaux-forts-ribeauville'},
@@ -126,7 +126,7 @@ const CV_TRAILS = [
   },
   {
     name: 'Circuit Saales — Haute-Bruche remote valley',
-    col: '#2471a3', w: 2.5, crowd: 'quiet', dist: '17 km', diff: 'Moderate', days: 'Full day',
+    col: '#2471a3', w: 3, crowd: 'quiet', dist: '17 km', diff: 'Moderate', days: 'Full day',
     desc: 'Dense fir forests, isolated farms, near-zero tourist infrastructure. Most undervisited train-accessible zone in Alsace. TER direct to Saales (70 min from Strasbourg).',
     links: [
       {t: 'AllTrails — Circuit Haute-Bruche', u: 'https://www.alltrails.com/trail/france/bas-rhin/circuit-de-la-haute-bruche'},
