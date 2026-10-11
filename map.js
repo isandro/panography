@@ -4,11 +4,95 @@
 
 // ── MAP INIT ─────────────────────────────────────────────────────
 const map = L.map('map', { center: [48.28, 7.20], zoom: 9 });
-L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-  maxZoom: 17,
-  subdomains: 'abc',
-  attribution: 'Map: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) · Data: &copy; <a href="https://openstreetmap.org">OSM</a> contributors, SRTM',
-}).addTo(map);
+
+// ── BASE LAYER REGISTRY ──────────────────────────────────────────
+// 10 alternative map renderings (IGN, OpenTopoMap, OSM variants, Esri, Carto).
+// All reachable without an API key.
+const BASE_LAYERS = {
+  opentopomap: {
+    name: 'OpenTopoMap',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    maxZoom: 17, subdomains: 'abc',
+    attribution: 'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) · Data: OSM, SRTM',
+  },
+  ign_scan25: {
+    name: 'IGN SCAN 25',
+    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image%2Fjpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    maxZoom: 16,
+    attribution: '© <a href="https://www.ign.fr">IGN-F</a> / SCAN 25 TOUR',
+  },
+  ign_plan: {
+    name: 'IGN Plan v2',
+    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image%2Fpng&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    maxZoom: 18,
+    attribution: '© <a href="https://www.ign.fr">IGN-F</a>',
+  },
+  ign_ortho: {
+    name: 'IGN Aerial',
+    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image%2Fjpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    maxZoom: 19,
+    attribution: '© <a href="https://www.ign.fr">IGN-F</a> aerial imagery',
+  },
+  osm_france: {
+    name: 'OSM France',
+    url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
+    maxZoom: 20, subdomains: 'abc',
+    attribution: '© OSM France, OSM contributors',
+  },
+  osm: {
+    name: 'OSM Standard',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    maxZoom: 19, subdomains: 'abc',
+    attribution: '© OSM contributors',
+  },
+  cyclosm: {
+    name: 'CyclOSM',
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    maxZoom: 20, subdomains: 'abc',
+    attribution: '© CyclOSM, OSM contributors',
+  },
+  humanitarian: {
+    name: 'HOT OSM',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    maxZoom: 19, subdomains: 'abc',
+    attribution: '© HOT, OSM contributors',
+  },
+  esri_topo: {
+    name: 'Esri Topo',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 19,
+    attribution: 'Tiles © Esri',
+  },
+  carto_light: {
+    name: 'Carto Light',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    maxZoom: 20, subdomains: 'abcd',
+    attribution: '© <a href="https://carto.com">CARTO</a>, OSM contributors',
+  },
+};
+
+let currentBaseLayer = null;
+let currentBaseKey = localStorage.getItem('vhp_base_layer') || 'opentopomap';
+if (!BASE_LAYERS[currentBaseKey]) currentBaseKey = 'opentopomap';
+
+function setBaseLayer(key) {
+  const cfg = BASE_LAYERS[key];
+  if (!cfg) return;
+  if (currentBaseLayer) map.removeLayer(currentBaseLayer);
+  const opts = { maxZoom: cfg.maxZoom, attribution: cfg.attribution };
+  if (cfg.subdomains) opts.subdomains = cfg.subdomains;
+  currentBaseLayer = L.tileLayer(cfg.url, opts).addTo(map);
+  currentBaseLayer.bringToBack();
+  currentBaseKey = key;
+  try { localStorage.setItem('vhp_base_layer', key); } catch (e) {}
+  document.querySelectorAll('.style-thumb').forEach(function(el) {
+    el.classList.toggle('active', el.dataset.style === key);
+  });
+}
+window.setBaseLayer = setBaseLayer;
+window.BASE_LAYERS = BASE_LAYERS;
+Object.defineProperty(window, 'currentBaseKey', { get: function() { return currentBaseKey; } });
+setBaseLayer(currentBaseKey);
 
 // ── HAVERSINE ────────────────────────────────────────────────────
 function hav(la1, ln1, la2, ln2) {
@@ -639,11 +723,38 @@ function planMyDay() {
   map.flyTo([stop.lat, stop.lng], 12, { duration: 1 });
 }
 
+// ── STYLE PICKER ─────────────────────────────────────────────────
+// Builds a 2×5 grid of base-layer thumbnails. Each thumb is a real tile
+// fetched from that provider for a reference point in the Vosges, so you
+// see the actual rendering style at a glance.
+function initStylePicker() {
+  const grid = document.getElementById('styleGrid');
+  if (!grid) return;
+  const refLat = 48.025, refLon = 7.00, refZoom = 14;
+  const tx = Math.floor(((refLon + 180) / 360) * (1 << refZoom));
+  const n  = Math.log(Math.tan(refLat*Math.PI/180) + 1/Math.cos(refLat*Math.PI/180)) / Math.PI;
+  const ty = Math.floor((1 - n) / 2 * (1 << refZoom));
+
+  Object.keys(BASE_LAYERS).forEach(function(key) {
+    const cfg = BASE_LAYERS[key];
+    let url = cfg.url
+      .replace('{z}', refZoom).replace('{x}', tx).replace('{y}', ty);
+    if (url.indexOf('{s}') >= 0) url = url.replace('{s}', (cfg.subdomains || 'abc')[0]);
+    const el = document.createElement('div');
+    el.className = 'style-thumb' + (key === currentBaseKey ? ' active' : '');
+    el.dataset.style = key;
+    el.innerHTML = '<img loading="lazy" src="' + url + '" alt="' + cfg.name + '"><span>' + cfg.name + '</span>';
+    el.addEventListener('click', function() { setBaseLayer(key); });
+    grid.appendChild(el);
+  });
+}
+
 // ── BOOT ─────────────────────────────────────────────────────────
 async function boot() {
   await loadSchedules();
   drawTransport();
   initPlanMyDay();
+  initStylePicker();
   if (typeof initPdfExport === 'function') initPdfExport();
   // Trails load lazily when the GR or CV toggle is first enabled.
 }

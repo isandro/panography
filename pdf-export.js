@@ -12,14 +12,25 @@
   // ── CONSTANTS ──────────────────────────────────────────────────
   var A4_W_MM = 297, A4_H_MM = 210;              // landscape dimensions
   var FOOTER_H_MM = 10;
-  // OpenTopoMap tiles — topographic, hillshaded, IGN-adjacent look.
-  var TILE_URL = 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png';
   var TILE_SIZE = 256;
-  // Picked so each printed pixel is covered by well under one tile pixel.
-  // OpenTopoMap max zoom is 17.
+  // Default zoom per scale. We pick the OSM-style web-mercator zoom level
+  // most providers serve well. Overridden per style below if needed.
   var SCALE_ZOOM = { 10000: 17, 25000: 15 };
   var TRAIL_COL_GR = '#E60000';
   var TRAIL_COL_CV = '#F39C12';
+
+  // Return the fully-expanded tile URL template for whichever base layer
+  // the user picked in map.js. We lose {s} load-balancing here (one host
+  // per export) — fine for a one-off batch of ~100 tiles.
+  function currentTileUrl() {
+    var reg = window.BASE_LAYERS;
+    var key = window.currentBaseKey;
+    var cfg = (reg && reg[key]) || (reg && reg.opentopomap);
+    if (!cfg) return 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png';
+    var url = cfg.url;
+    if (url.indexOf('{s}') >= 0) url = url.replace('{s}', (cfg.subdomains || 'abc')[0]);
+    return { url: url, maxZoom: cfg.maxZoom || 17 };
+  }
 
   // ── UTM CONVERSION (WGS84) ─────────────────────────────────────
   function latLonToUtm(lat, lon) {
@@ -96,18 +107,19 @@
   }
 
   // ── TILE FETCHING ──────────────────────────────────────────────
-  function fetchTile(x, y, z) {
+  function fetchTile(urlTemplate, x, y, z) {
     return new Promise(function (resolve) {
       var img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = function () { resolve(img); };
       img.onerror = function () { resolve(null); };
-      img.src = TILE_URL.replace('{x}', x).replace('{y}', y).replace('{z}', z);
+      img.src = urlTemplate.replace('{x}', x).replace('{y}', y).replace('{z}', z);
     });
   }
 
   function composite(bounds, scale, statusEl) {
-    var zoom = SCALE_ZOOM[scale] || 15;
+    var layer = currentTileUrl();
+    var zoom = Math.min(SCALE_ZOOM[scale] || 15, layer.maxZoom || 17);
     var nwX = lonToPixelX(bounds.getWest(), zoom);
     var nwY = latToPixelY(bounds.getNorth(), zoom);
     var seX = lonToPixelX(bounds.getEast(), zoom);
@@ -130,7 +142,7 @@
     for (var tx = tx0; tx < tx1; tx++) {
       for (var ty = ty0; ty < ty1; ty++) {
         (function (tx, ty) {
-          jobs.push(fetchTile(tx, ty, zoom).then(function (img) {
+          jobs.push(fetchTile(layer.url, tx, ty, zoom).then(function (img) {
             if (img) ctx.drawImage(img, tx * TILE_SIZE - nwX, ty * TILE_SIZE - nwY);
             done++;
             if (statusEl) statusEl.textContent = 'Fetching tiles ' + done + ' / ' + total;
@@ -649,11 +661,16 @@
     var utm = latLonToUtm(center.lat, center.lng);
     var decl = approxDeclination(center.lat, center.lng, new Date().getFullYear());
     var declStr = Math.abs(decl).toFixed(1) + '°' + (decl >= 0 ? 'E' : 'W');
+    var cfg = (window.BASE_LAYERS || {})[window.currentBaseKey] || {};
+    var mapCredit = (cfg.attribution || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&copy;/g, '©')
+      .replace(/\s+/g, ' ').trim();
     var info = 'Scale 1:' + scale.toLocaleString('en-US')
       + '  ·  Grid: UTM Zone ' + utm.zone + 'N  ·  Datum: WGS84'
       + '  ·  Mag. declination ' + declStr + ' (approx, ' + new Date().getFullYear() + ')'
       + '  ·  Center ' + center.lat.toFixed(5) + ', ' + center.lng.toFixed(5)
-      + '  ·  Map © OpenTopoMap / OSM contributors'
+      + (mapCredit ? '  ·  ' + mapCredit : '')
       + '  ·  Printed ' + new Date().toISOString().slice(0, 10);
     pdf.setFontSize(6.8);
     pdf.text(info, A4_W_MM - 4, fy + 6, { align: 'right' });
@@ -675,18 +692,39 @@
   var selectionRect = null;
   var pickMode = false;
   var selectionCenter = null;
+  var dragging = false;
+  var dragStartLatLng = null;
+  var dragStartCenter = null;
 
   function updateRectangle() {
     var scale = parseInt(document.getElementById('pdfScale').value, 10);
     if (!selectionCenter) selectionCenter = map.getCenter();
     var bounds = computeBounds(selectionCenter, scale);
-    if (selectionRect) selectionRect.setBounds(bounds);
-    else {
+    if (selectionRect) {
+      selectionRect.setBounds(bounds);
+    } else {
       selectionRect = L.rectangle(bounds, {
-        color: '#eab308', weight: 2, fillColor: '#eab308', fillOpacity: 0.10, dashArray: '6 4'
+        color: '#eab308', weight: 2, fillColor: '#eab308', fillOpacity: 0.12,
+        dashArray: '6 4', className: 'pdf-selection-rect'
       }).addTo(map);
+      wireDrag(selectionRect);
     }
     document.getElementById('pdfDownloadBtn').disabled = false;
+  }
+
+  // Allow the user to drag the selection rectangle with the mouse.
+  // Mousedown on the rectangle → start drag; mousemove moves the whole
+  // bounds by (lat/lng delta); mouseup / mouseout ends it. We disable the
+  // map's own panning while a drag is in progress.
+  function wireDrag(rect) {
+    rect.on('mousedown', function (e) {
+      dragging = true;
+      dragStartLatLng = e.latlng;
+      dragStartCenter = selectionCenter;
+      map.dragging.disable();
+      L.DomEvent.stopPropagation(e.originalEvent);
+      L.DomEvent.preventDefault(e.originalEvent);
+    });
   }
 
   function initPdfExport() {
@@ -711,13 +749,30 @@
         selectionCenter = map.getCenter();
         updateRectangle();
         selectBtn.textContent = 'Hide selection area';
-        statusEl.innerHTML = '<small>Click the map to re-center.</small>';
+        statusEl.innerHTML = '<small>Drag the yellow box, or click the map to re-center.</small>';
         pickMode = true;
       }
     });
 
+    // Dragging the selection: track mouse while a drag is active.
+    map.on('mousemove', function (e) {
+      if (!dragging) return;
+      var dLat = e.latlng.lat - dragStartLatLng.lat;
+      var dLng = e.latlng.lng - dragStartLatLng.lng;
+      selectionCenter = L.latLng(dragStartCenter.lat + dLat, dragStartCenter.lng + dLng);
+      updateRectangle();
+    });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      map.dragging.enable();
+    }
+    map.on('mouseup', endDrag);
+    map.getContainer().addEventListener('mouseleave', endDrag);
+
+    // Click outside the rectangle (and not after a drag) → re-center.
     map.on('click', function (e) {
-      if (!pickMode) return;
+      if (!pickMode || dragging) return;
       selectionCenter = e.latlng;
       updateRectangle();
     });

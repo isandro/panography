@@ -136,3 +136,15 @@ h1{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--forest);l
 #pdfPanel button:disabled{background:#b0a797;cursor:not-allowed}
 #pdfStatus{margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.4}
 .pdf-hint{font-size:10px;color:var(--muted);line-height:1.4;margin:4px 0 2px;font-style:italic}
+
+/* ── Style picker ──────────────────────────────────────────── */
+.style-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.style-thumb{cursor:pointer;border:2px solid transparent;border-radius:5px;overflow:hidden;transition:border-color .15s;background:#c8bfa8}
+.style-thumb img{width:100%;height:60px;object-fit:cover;display:block;background:#c8bfa8}
+.style-thumb span{display:block;font-size:9px;padding:3px 4px;background:var(--parch);color:var(--ink);text-align:center;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.style-thumb:hover{border-color:var(--muted)}
+.style-thumb.active{border-color:var(--moss)}
+.style-thumb.active span{background:var(--moss);color:white;font-weight:500}
+
+/* ── Draggable selection rectangle ─────────────────────────── */
+.leaflet-interactive.pdf-selection-rect{cursor:move}
