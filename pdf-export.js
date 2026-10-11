@@ -189,9 +189,10 @@
 
   // ── UTM GRID ───────────────────────────────────────────────────
   function drawUtmGrid(ctx, comp, scale) {
-    // Minor grid cadence (every line drawn); major cadence (labelled, bolder).
-    var step      = scale === 10000 ? 100  : 500;
-    var labelStep = scale === 10000 ? 500  : 500;
+    // Only 1 km lines are labelled. At 1:10 000 we keep a faint 100m
+    // minor grid as unlabelled hairlines; at 1:25 000 the grid is pure 1 km.
+    var step      = scale === 10000 ? 100  : 1000;
+    var labelStep = 1000;
     var b = comp.bounds;
     var corners = [
       latLonToUtm(b.getNorth(), b.getWest()),
@@ -301,11 +302,189 @@
     return { gr: hasGR, cv: hasCV };
   }
 
+  // ── ELEVATION CONTOURS ────────────────────────────────────────
+  // SRTM-derived elevation tiles (Terrarium encoding) hosted on AWS Open Data.
+  // Elevation = (R*256 + G + B/256) - 32768. CORS-enabled, no API key.
+  var TERRARIUM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+
+  // Terrarium zoom per PDF scale — picked so one grid cell ≈ 10–20 m.
+  var CONTOUR_ZOOM = { 10000: 14, 25000: 13 };
+
+  function fetchTerrariumTile(x, y, z) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { resolve(null); };
+      img.src = TERRARIUM_URL.replace('{x}', x).replace('{y}', y).replace('{z}', z);
+    });
+  }
+
+  async function buildElevationGrid(bounds, scale, statusEl) {
+    var z = CONTOUR_ZOOM[scale] || 13;
+    var nwX = lonToPixelX(bounds.getWest(), z);
+    var nwY = latToPixelY(bounds.getNorth(), z);
+    var seX = lonToPixelX(bounds.getEast(), z);
+    var seY = latToPixelY(bounds.getSouth(), z);
+    var tx0 = Math.floor(nwX / TILE_SIZE), tx1 = Math.ceil(seX / TILE_SIZE);
+    var ty0 = Math.floor(nwY / TILE_SIZE), ty1 = Math.ceil(seY / TILE_SIZE);
+
+    var jobs = [], tiles = {};
+    for (var tx = tx0; tx < tx1; tx++) {
+      for (var ty = ty0; ty < ty1; ty++) {
+        (function (tx, ty) {
+          jobs.push(fetchTerrariumTile(tx, ty, z).then(function (img) {
+            tiles[tx + ',' + ty] = img;
+          }));
+        })(tx, ty);
+      }
+    }
+    await Promise.all(jobs);
+
+    var gridW = (tx1 - tx0) * TILE_SIZE;
+    var gridH = (ty1 - ty0) * TILE_SIZE;
+    var canvas = document.createElement('canvas');
+    canvas.width = gridW; canvas.height = gridH;
+    var ctx = canvas.getContext('2d');
+    for (var tx2 = tx0; tx2 < tx1; tx2++) {
+      for (var ty2 = ty0; ty2 < ty1; ty2++) {
+        var img = tiles[tx2 + ',' + ty2];
+        if (img) ctx.drawImage(img, (tx2 - tx0) * TILE_SIZE, (ty2 - ty0) * TILE_SIZE);
+      }
+    }
+    var pixels;
+    try { pixels = ctx.getImageData(0, 0, gridW, gridH).data; }
+    catch (e) { return null; }
+
+    var elev = new Float32Array(gridW * gridH);
+    for (var i = 0; i < gridW * gridH; i++) {
+      elev[i] = (pixels[i*4] * 256 + pixels[i*4+1] + pixels[i*4+2] / 256) - 32768;
+    }
+    return {
+      data: elev, width: gridW, height: gridH,
+      zoom: z, originX: tx0 * TILE_SIZE, originY: ty0 * TILE_SIZE
+    };
+  }
+
+  // Marching squares: emit line segments for a single contour level.
+  function marchContour(grid, level, emit) {
+    var w = grid.width, h = grid.height, d = grid.data;
+    for (var y = 0; y < h - 1; y++) {
+      for (var x = 0; x < w - 1; x++) {
+        var tl = d[y*w + x],       tr = d[y*w + x+1];
+        var bl = d[(y+1)*w + x],   br = d[(y+1)*w + x+1];
+        var code = ((tl > level) ? 8 : 0) | ((tr > level) ? 4 : 0)
+                 | ((br > level) ? 2 : 0) | ((bl > level) ? 1 : 0);
+        if (code === 0 || code === 15) continue;
+        var top    = [x + (level - tl) / (tr - tl), y];
+        var right  = [x + 1, y + (level - tr) / (br - tr)];
+        var bot    = [x + (level - bl) / (br - bl), y + 1];
+        var left   = [x, y + (level - tl) / (bl - tl)];
+        switch (code) {
+          case 1:  emit(left, bot); break;
+          case 2:  emit(bot, right); break;
+          case 3:  emit(left, right); break;
+          case 4:  emit(top, right); break;
+          case 5:  emit(left, top); emit(bot, right); break;
+          case 6:  emit(top, bot); break;
+          case 7:  emit(left, top); break;
+          case 8:  emit(left, top); break;
+          case 9:  emit(top, bot); break;
+          case 10: emit(left, bot); emit(top, right); break;
+          case 11: emit(top, right); break;
+          case 12: emit(left, right); break;
+          case 13: emit(bot, right); break;
+          case 14: emit(left, bot); break;
+        }
+      }
+    }
+  }
+
+  function drawContours(ctx, comp, grid, interval) {
+    if (!grid || !interval) return false;
+    var pxPerMm = comp.pxW / A4_W_MM;
+    var minorW  = pxPerMm * 0.18;
+    var majorW  = pxPerMm * 0.35;
+    var haloW   = pxPerMm * 0.55;
+
+    // Grid cell (gx, gy) → canvas pixel. We know the grid pixel space is
+    // the Terrarium Web-Mercator at `grid.zoom`, offset by `grid.originX/Y`.
+    var zPow = 1 << grid.zoom;
+    function cellToCanvas(gx, gy) {
+      var globalX = grid.originX + gx;
+      var globalY = grid.originY + gy;
+      var lon = (globalX / (zPow * TILE_SIZE)) * 360 - 180;
+      var n = Math.PI - 2 * Math.PI * globalY / (zPow * TILE_SIZE);
+      var lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      return [comp.toX(lon), comp.toY(lat)];
+    }
+
+    // Find min/max elevation in the actual export area to pick level range.
+    var min = Infinity, max = -Infinity;
+    for (var i = 0; i < grid.data.length; i++) {
+      var v = grid.data[i];
+      if (v < -500 || v > 9000) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (!isFinite(min)) return false;
+
+    var startLevel = Math.ceil(min / interval) * interval;
+    var endLevel   = Math.floor(max / interval) * interval;
+    if (endLevel < startLevel) return false;
+
+    // Collect segments per level once; draw halo pass then colour pass.
+    var levels = [];
+    for (var lvl = startLevel; lvl <= endLevel; lvl += interval) levels.push(lvl);
+    var segsByLevel = levels.map(function (lvl) {
+      var out = [];
+      marchContour(grid, lvl, function (a, b) {
+        var p = cellToCanvas(a[0], a[1]);
+        var q = cellToCanvas(b[0], b[1]);
+        out.push(p, q);
+      });
+      return out;
+    });
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Halo
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = haloW;
+    segsByLevel.forEach(function (segs) {
+      ctx.beginPath();
+      for (var i = 0; i < segs.length; i += 2) {
+        ctx.moveTo(segs[i][0], segs[i][1]);
+        ctx.lineTo(segs[i+1][0], segs[i+1][1]);
+      }
+      ctx.stroke();
+    });
+
+    // Brown lines; every 5th contour (index-wise) is bolder (IGN practice).
+    ctx.strokeStyle = '#8B5A2B';
+    levels.forEach(function (lvl, idx) {
+      var isMajor = (Math.round(lvl / interval) % 5) === 0;
+      ctx.lineWidth = isMajor ? majorW : minorW;
+      var segs = segsByLevel[idx];
+      ctx.beginPath();
+      for (var i = 0; i < segs.length; i += 2) {
+        ctx.moveTo(segs[i][0], segs[i][1]);
+        ctx.lineTo(segs[i+1][0], segs[i+1][1]);
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+    return true;
+  }
+
   // ── LEGEND BOX (on the printed page) ───────────────────────────
-  function drawLegend(pdf, opts, trailsDrawn) {
+  function drawLegend(pdf, opts, trailsDrawn, contoursDrawn) {
     var items = [];
     if (trailsDrawn.gr) items.push({ kind: 'line', color: TRAIL_COL_GR, text: 'GR — Grande Randonnée' });
     if (trailsDrawn.cv) items.push({ kind: 'line', color: TRAIL_COL_CV, text: 'Club Vosgien' });
+    if (contoursDrawn)  items.push({ kind: 'contour', text: 'Contour, every ' + opts.contour + ' m' });
     if (opts.water)     items.push({ kind: 'spring', text: 'Water source' });
     if (opts.landmarks) {
       items.push({ kind: 'peak',      text: 'Peak' });
@@ -350,6 +529,10 @@
         pdf.triangle(sx + 3.5, sy - 1.2, sx + 2.3, sy + 0.9, sx + 4.7, sy + 0.9, 'F');
         pdf.setFillColor(255, 255, 255);
         pdf.circle(sx + 3.5, sy + 0.1, 0.4, 'F');
+      } else if (item.kind === 'contour') {
+        pdf.setDrawColor('#8B5A2B');
+        pdf.setLineWidth(0.35);
+        pdf.line(sx, sy, sx + 7, sy);
       } else if (item.kind === 'hut') {
         pdf.setFillColor('#be123c');
         pdf.rect(sx + 2.4, sy - 1.1, 2.2, 2.2, 'F');
@@ -405,6 +588,19 @@
 
     if (opts.grid) drawUtmGrid(ctx, comp, scale);
 
+    // Elevation contours (SRTM-derived, marching squares).
+    var contoursDrawn = false;
+    if (opts.contour > 0) {
+      statusEl.textContent = 'Fetching elevation tiles…';
+      try {
+        var grid = await buildElevationGrid(bounds, scale, statusEl);
+        if (grid) {
+          statusEl.textContent = 'Drawing contours…';
+          contoursDrawn = drawContours(ctx, comp, grid, opts.contour);
+        }
+      } catch (e) { console.warn('Contour fetch failed', e); }
+    }
+
     // IGN-style trail overlay — uses whatever trails map.js already loaded.
     var trailsDrawn = drawTrails(ctx, comp);
 
@@ -423,7 +619,7 @@
     var imgData = comp.canvas.toDataURL('image/jpeg', 0.88);
     pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, A4_H_MM, undefined, 'FAST');
 
-    drawLegend(pdf, opts, trailsDrawn);
+    drawLegend(pdf, opts, trailsDrawn, contoursDrawn);
 
     // Footer strip
     var fy = A4_H_MM - FOOTER_H_MM;
@@ -534,7 +730,8 @@
         await generatePdf(selectionCenter, scale, {
           grid: document.getElementById('pdfGrid').checked,
           water: document.getElementById('pdfWater').checked,
-          landmarks: document.getElementById('pdfLandmarks').checked
+          landmarks: document.getElementById('pdfLandmarks').checked,
+          contour: parseInt(document.getElementById('pdfContour').value, 10) || 0
         }, statusEl);
         statusEl.innerHTML = '<small style="color:#22c55e">PDF downloaded.</small>';
       } catch (err) {
