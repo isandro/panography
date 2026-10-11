@@ -2,7 +2,7 @@
 :root{
   --forest:#2d4a2d;--moss:#4a7c4a;--cream:#f7f3ec;--parch:#ede7d9;--ink:#1e2318;--muted:#7a7060;
   --c0:#22c55e;--c30:#84cc16;--c60:#eab308;--c90:#f97316;--c120:#ef4444;
-  --gr:#c0392b;--cv:#2471a3;
+  --gr:#E60000;--cv:#F39C12;
 }
 body{font-family:'DM Sans',sans-serif;background:var(--forest);color:var(--ink);height:100vh;display:flex;overflow:hidden}
 
@@ -135,3 +135,4 @@ h1{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--forest);l
 #pdfPanel button:hover:not(:disabled){background:var(--moss)}
 #pdfPanel button:disabled{background:#b0a797;cursor:not-allowed}
 #pdfStatus{margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.4}
+.pdf-hint{font-size:10px;color:var(--muted);line-height:1.4;margin:4px 0 2px;font-style:italic}

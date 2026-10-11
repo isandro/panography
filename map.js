@@ -4,9 +4,10 @@
 
 // ── MAP INIT ─────────────────────────────────────────────────────
 const map = L.map('map', { center: [48.28, 7.20], zoom: 9 });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom: 17,
+  subdomains: 'abc',
+  attribution: 'Map: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) · Data: &copy; <a href="https://openstreetmap.org">OSM</a> contributors, SRTM',
 }).addTo(map);
 
 // ── HAVERSINE ────────────────────────────────────────────────────
@@ -242,12 +243,12 @@ function drawRelation(rel, col, weight, opacity, layer, polylineStore) {
   rel.members.forEach(function(member) {
     if (member.type === 'way' && member.geometry && member.geometry.length > 1) {
       const coords = member.geometry.map(function(p) { return [p.lat, p.lon]; });
-      // IGN-style white halo for contrast against terrain shading
-      const halo = L.polyline(coords, { color: '#ffffff', weight: weight + 3, opacity: 0.92, interactive: false });
+      // IGN-style white halo — fully opaque for low-light legibility
+      const halo = L.polyline(coords, { color: '#ffffff', weight: weight + 4, opacity: 1.0, interactive: false, lineCap: 'round', lineJoin: 'round' });
       halo.addTo(layer);
-      const p = L.polyline(coords, { color: col, weight: weight, opacity: opacity, interactive: true, lineCap: 'round', lineJoin: 'round' });
-      p.on('mouseover', function() { this.setStyle({ weight: weight + 2, opacity: 1 }); halo.setStyle({ weight: weight + 5 }); });
-      p.on('mouseout',  function() { this.setStyle({ weight: weight, opacity: opacity }); halo.setStyle({ weight: weight + 3 }); });
+      const p = L.polyline(coords, { color: col, weight: weight, opacity: 1.0, interactive: true, lineCap: 'round', lineJoin: 'round' });
+      p.on('mouseover', function() { this.setStyle({ weight: weight + 2 }); halo.setStyle({ weight: weight + 6 }); });
+      p.on('mouseout',  function() { this.setStyle({ weight: weight }); halo.setStyle({ weight: weight + 4 }); });
       p._relCoords = coords;
       polylineStore.push(p);
       p.addTo(layer);
@@ -476,11 +477,11 @@ async function loadTrails() {
 function drawFallbackCV() {
   CV_TRAILS.forEach(function(t) {
     const coords = t.coords;
-    // White halo for IGN-style contrast
-    L.polyline(coords, { color: '#ffffff', weight: t.w + 3, opacity: 0.92, dashArray: '4 3', interactive: false }).addTo(cvLayer);
-    const p = L.polyline(coords, { color: t.col, weight: t.w, opacity: .85, dashArray: '4 3', interactive: true, lineCap: 'round', lineJoin: 'round' });
-    p.on('mouseover', function() { this.setStyle({ weight: t.w + 2, opacity: 1 }); });
-    p.on('mouseout',  function() { this.setStyle({ weight: t.w, opacity: .85, dashArray: '4 3' }); });
+    // Fully opaque white halo for low-light legibility
+    L.polyline(coords, { color: '#ffffff', weight: t.w + 4, opacity: 1.0, interactive: false, lineCap: 'round', lineJoin: 'round' }).addTo(cvLayer);
+    const p = L.polyline(coords, { color: t.col, weight: t.w, opacity: 1.0, dashArray: '6 3', interactive: true, lineCap: 'round', lineJoin: 'round' });
+    p.on('mouseover', function() { this.setStyle({ weight: t.w + 2 }); });
+    p.on('mouseout',  function() { this.setStyle({ weight: t.w }); });
     p._relCoords  = coords;
     p.trailName   = t.name;
     p.trailCoords = coords;

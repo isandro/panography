@@ -12,10 +12,14 @@
   // ── CONSTANTS ──────────────────────────────────────────────────
   var A4_W_MM = 297, A4_H_MM = 210;              // landscape dimensions
   var FOOTER_H_MM = 10;
-  var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // OpenTopoMap tiles — topographic, hillshaded, IGN-adjacent look.
+  var TILE_URL = 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png';
   var TILE_SIZE = 256;
   // Picked so each printed pixel is covered by well under one tile pixel.
+  // OpenTopoMap max zoom is 17.
   var SCALE_ZOOM = { 10000: 17, 25000: 15 };
+  var TRAIL_COL_GR = '#E60000';
+  var TRAIL_COL_CV = '#F39C12';
 
   // ── UTM CONVERSION (WGS84) ─────────────────────────────────────
   function latLonToUtm(lat, lon) {
@@ -202,22 +206,22 @@
     var zone = corners[0].zone;
 
     ctx.save();
-    ctx.font = (scale === 10000 ? '13px' : '12px') + ' sans-serif';
+    ctx.font = (scale === 10000 ? 'bold 13px' : 'bold 12px') + ' sans-serif';
 
     function label(text, x, y) {
       ctx.save();
       var w = ctx.measureText(text).width;
-      ctx.fillStyle = 'rgba(255,255,255,0.80)';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
       ctx.fillRect(x - 2, y - 11, w + 4, 14);
-      ctx.fillStyle = 'rgba(0, 40, 110, 1)';
+      ctx.fillStyle = 'rgba(0, 30, 100, 1)';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(text, x, y);
       ctx.restore();
     }
 
     function strokeStyle(isMajor) {
-      ctx.strokeStyle = isMajor ? 'rgba(0, 50, 140, 0.55)' : 'rgba(0, 50, 140, 0.22)';
-      ctx.lineWidth   = isMajor ? 1.3 : 0.7;
+      ctx.strokeStyle = isMajor ? 'rgba(0, 40, 130, 0.75)' : 'rgba(0, 40, 130, 0.30)';
+      ctx.lineWidth   = isMajor ? 1.6 : 0.8;
     }
 
     // Vertical lines (constant easting)
@@ -248,6 +252,112 @@
   }
 
   function formatCoord(v) { return Math.round(v).toString(); }
+
+  // ── TRAIL OVERLAY ──────────────────────────────────────────────
+  // Uses whatever trails map.js has already loaded (grPolylines, cvPolylines
+  // are globals from map.js). Lines are rendered in millimetre widths so they
+  // look identical across both PDF scales.
+  function drawTrails(ctx, comp) {
+    var pxPerMm = comp.pxW / A4_W_MM;
+    var hasGR = typeof grPolylines !== 'undefined' && grPolylines.length > 0;
+    var hasCV = typeof cvPolylines !== 'undefined' && cvPolylines.length > 0;
+    if (!hasGR && !hasCV) return { gr: false, cv: false };
+
+    function drawSet(polylines, color, trailMm, haloMm) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      // Halo
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = haloMm * pxPerMm;
+      polylines.forEach(function (poly) {
+        var coords = poly._relCoords;
+        if (!coords || coords.length < 2) return;
+        ctx.beginPath();
+        coords.forEach(function (c, i) {
+          var x = comp.toX(c[1]), y = comp.toY(c[0]);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+      // Trail
+      ctx.strokeStyle = color;
+      ctx.lineWidth = trailMm * pxPerMm;
+      polylines.forEach(function (poly) {
+        var coords = poly._relCoords;
+        if (!coords || coords.length < 2) return;
+        ctx.beginPath();
+        coords.forEach(function (c, i) {
+          var x = comp.toX(c[1]), y = comp.toY(c[0]);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    if (hasGR) drawSet(grPolylines, TRAIL_COL_GR, 0.7, 1.5);
+    if (hasCV) drawSet(cvPolylines, TRAIL_COL_CV, 0.55, 1.3);
+    return { gr: hasGR, cv: hasCV };
+  }
+
+  // ── LEGEND BOX (on the printed page) ───────────────────────────
+  function drawLegend(pdf, opts, trailsDrawn) {
+    var items = [];
+    if (trailsDrawn.gr) items.push({ kind: 'line', color: TRAIL_COL_GR, text: 'GR — Grande Randonnée' });
+    if (trailsDrawn.cv) items.push({ kind: 'line', color: TRAIL_COL_CV, text: 'Club Vosgien' });
+    if (opts.water)     items.push({ kind: 'spring', text: 'Water source' });
+    if (opts.landmarks) {
+      items.push({ kind: 'peak',      text: 'Peak' });
+      items.push({ kind: 'viewpoint', text: 'Viewpoint' });
+      items.push({ kind: 'hut',       text: 'Hut / shelter' });
+    }
+    if (!items.length) return;
+
+    var x = 4, y = 4;
+    var w = 50;
+    var rowH = 4.2;
+    var h = 7 + items.length * rowH;
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(60, 60, 60);
+    pdf.setLineWidth(0.3);
+    pdf.rect(x, y, w, h, 'FD');
+
+    pdf.setFontSize(7);
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFont(undefined, 'bold');
+    pdf.text('LEGEND', x + 2, y + 4);
+    pdf.setFont(undefined, 'normal');
+
+    items.forEach(function (item, i) {
+      var iy = y + 7 + i * rowH;
+      var sx = x + 3, sy = iy - 1.2;
+      if (item.kind === 'line') {
+        pdf.setDrawColor(255, 255, 255);
+        pdf.setLineWidth(1.5);
+        pdf.line(sx, sy, sx + 7, sy);
+        pdf.setDrawColor(item.color);
+        pdf.setLineWidth(0.8);
+        pdf.line(sx, sy, sx + 7, sy);
+      } else if (item.kind === 'spring') {
+        pdf.setFillColor('#2563eb');
+        pdf.circle(sx + 3.5, sy, 1.1, 'F');
+      } else if (item.kind === 'peak') {
+        pdf.setFillColor('#92400e');
+        pdf.triangle(sx + 3.5, sy - 1.3, sx + 2.2, sy + 0.8, sx + 4.8, sy + 0.8, 'F');
+      } else if (item.kind === 'viewpoint') {
+        pdf.setFillColor('#0e7490');
+        pdf.triangle(sx + 3.5, sy - 1.2, sx + 2.3, sy + 0.9, sx + 4.7, sy + 0.9, 'F');
+        pdf.setFillColor(255, 255, 255);
+        pdf.circle(sx + 3.5, sy + 0.1, 0.4, 'F');
+      } else if (item.kind === 'hut') {
+        pdf.setFillColor('#be123c');
+        pdf.rect(sx + 2.4, sy - 1.1, 2.2, 2.2, 'F');
+      }
+      pdf.setTextColor(20, 20, 20);
+      pdf.text(item.text, x + 12, iy);
+    });
+  }
 
   // ── POI MARKERS ────────────────────────────────────────────────
   function drawPois(ctx, comp, pois) {
@@ -295,6 +405,9 @@
 
     if (opts.grid) drawUtmGrid(ctx, comp, scale);
 
+    // IGN-style trail overlay — uses whatever trails map.js already loaded.
+    var trailsDrawn = drawTrails(ctx, comp);
+
     if (opts.water || opts.landmarks) {
       statusEl.textContent = 'Fetching water & landmarks…';
       try {
@@ -307,8 +420,10 @@
     var jsPDF = window.jspdf.jsPDF;
     var pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-    var imgData = comp.canvas.toDataURL('image/jpeg', 0.85);
+    var imgData = comp.canvas.toDataURL('image/jpeg', 0.88);
     pdf.addImage(imgData, 'JPEG', 0, 0, A4_W_MM, A4_H_MM, undefined, 'FAST');
+
+    drawLegend(pdf, opts, trailsDrawn);
 
     // Footer strip
     var fy = A4_H_MM - FOOTER_H_MM;
@@ -342,6 +457,7 @@
       + '  ·  Grid: UTM Zone ' + utm.zone + 'N  ·  Datum: WGS84'
       + '  ·  Mag. declination ' + declStr + ' (approx, ' + new Date().getFullYear() + ')'
       + '  ·  Center ' + center.lat.toFixed(5) + ', ' + center.lng.toFixed(5)
+      + '  ·  Map © OpenTopoMap / OSM contributors'
       + '  ·  Printed ' + new Date().toISOString().slice(0, 10);
     pdf.setFontSize(6.8);
     pdf.text(info, A4_W_MM - 4, fy + 6, { align: 'right' });

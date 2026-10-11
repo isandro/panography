@@ -55,10 +55,9 @@
   <div class="sec">
     <div class="st">Legend</div>
     <div class="lg-grp">
-      <div class="lgt">GR trails — real OSM geometry</div>
-      <div class="lgi"><span class="lgsw" style="background:var(--gr)"></span>GR5 — ridge (crêtes)</div>
-      <div class="lgi"><span class="lgsw" style="background:var(--gr);opacity:.65"></span>GR53 · GR531 · GR532</div>
-      <div class="lgi"><span class="lgsw" style="background:var(--cv)"></span>Club Vosgien circuit</div>
+      <div class="lgt">Hiking trails (IGN colour code)</div>
+      <div class="lgi"><span class="lgsw" style="background:var(--gr)"></span>GR — Grande Randonnée</div>
+      <div class="lgi"><span class="lgsw" style="background:var(--cv)"></span>Club Vosgien — local circuits</div>
     </div>
     <div class="lg-grp" style="margin-top:8px">
       <div class="lgt">Train reach from Strasbourg</div>
@@ -97,6 +96,7 @@
     <label class="pdf-row"><input type="checkbox" id="pdfGrid" checked> UTM grid</label>
     <label class="pdf-row"><input type="checkbox" id="pdfWater"> Water sources (springs, drinking water)</label>
     <label class="pdf-row"><input type="checkbox" id="pdfLandmarks"> Landmarks (peaks, viewpoints, huts)</label>
+    <div class="pdf-hint">Enable GR or Club Vosgien in Layers to include trails in the PDF.</div>
     <button id="pdfSelectBtn">Show selection area</button>
     <button id="pdfDownloadBtn" disabled>Download PDF</button>
     <div id="pdfStatus"></div>
