@@ -125,3 +125,13 @@ h1{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--forest);l
 .plan-card h4{font-family:'Lora',serif;font-size:12px;font-weight:600;color:var(--forest);margin-bottom:3px}
 .plan-card p{font-size:10px;color:var(--muted);line-height:1.4;margin:0}
 .plan-card .plan-tag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:8px;margin-top:3px}
+
+/* ── PDF Export panel ──────────────────────────────────────── */
+#pdfPanel .pdf-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink);margin-bottom:4px;line-height:1.4}
+#pdfPanel .pdf-row > span{min-width:40px}
+#pdfPanel select{flex:1;padding:4px 6px;font-size:11px;border:1px solid #c8bfa8;border-radius:4px;background:white;font-family:'DM Sans',sans-serif;color:var(--ink)}
+#pdfPanel input[type="checkbox"]{accent-color:var(--moss);margin:0}
+#pdfPanel button{width:100%;margin-top:6px;padding:6px 10px;background:var(--forest);color:white;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500}
+#pdfPanel button:hover:not(:disabled){background:var(--moss)}
+#pdfPanel button:disabled{background:#b0a797;cursor:not-allowed}
+#pdfStatus{margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.4}

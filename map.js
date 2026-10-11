@@ -488,7 +488,15 @@ function drawFallbackCV() {
 
 // ── LAYER TOGGLES ────────────────────────────────────────────────
 const layerMap = { gr: grLayer, cv: cvLayer, rail: railLayer, bus: busLayer, stops: stopsLayer, crowd: crowdLayer };
-function setLayer(n, on) { on ? layerMap[n].addTo(map) : map.removeLayer(layerMap[n]); }
+let trailsRequested = false;
+function setLayer(n, on) {
+  // Lazy-load trails on first enable to keep initial page load fast
+  if (on && (n === 'gr' || n === 'cv') && !trailsRequested) {
+    trailsRequested = true;
+    loadTrails();
+  }
+  on ? layerMap[n].addTo(map) : map.removeLayer(layerMap[n]);
+}
 // Expose to inline onchange handlers
 window.setLayer = setLayer;
 
@@ -630,7 +638,8 @@ async function boot() {
   await loadSchedules();
   drawTransport();
   initPlanMyDay();
-  loadTrails();
+  if (typeof initPdfExport === 'function') initPdfExport();
+  // Trails load lazily when the GR or CV toggle is first enabled.
 }
 
 boot();
