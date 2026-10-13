@@ -136,9 +136,16 @@ function initStylePicker() {
 }
 
 // ── BOOT ─────────────────────────────────────────────────────────
+// Wait for DOMContentLoaded so search.js and pdf-export.js (which load
+// after map.js) have had a chance to attach their init functions to
+// window before we try to call them.
 function boot() {
   initStylePicker();
   if (typeof initSearch === 'function') initSearch();
   if (typeof initPdfExport === 'function') initPdfExport();
 }
-boot();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
