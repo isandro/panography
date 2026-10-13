@@ -1,0 +1,60 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --forest:#2d4a2d;--moss:#4a7c4a;--cream:#f7f3ec;--parch:#ede7d9;--ink:#1e2318;--muted:#7a7060;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--forest);color:var(--ink);height:100vh;display:flex;overflow:hidden}
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+#sidebar{width:290px;min-width:290px;background:var(--cream);display:flex;flex-direction:column;border-right:1px solid #c8bfa8;overflow-y:auto;z-index:1000}
+.hdr{padding:16px 18px 12px;border-bottom:1px solid #d9d0be;background:var(--parch)}
+.ey{font-size:10px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+h1{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--forest);line-height:1.25}
+.sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;font-style:italic;font-family:'Lora',serif}
+.sec{padding:12px 18px;border-bottom:1px solid #d9d0be}
+.st{font-size:10px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+
+/* ── Search ────────────────────────────────────────────────── */
+#searchInput{width:100%;padding:7px 10px;font-size:12px;border:1px solid #c8bfa8;border-radius:5px;background:white;font-family:'DM Sans',sans-serif;color:var(--ink);outline:none}
+#searchInput:focus{border-color:var(--moss);box-shadow:0 0 0 2px rgba(74,124,74,0.15)}
+#searchStatus{margin-top:6px;font-size:10px;color:var(--muted);line-height:1.4;min-height:12px}
+
+/* ── Style picker ──────────────────────────────────────────── */
+.style-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.style-thumb{cursor:pointer;border:2px solid transparent;border-radius:5px;overflow:hidden;transition:border-color .15s;background:#c8bfa8}
+.style-thumb img{width:100%;height:60px;object-fit:cover;display:block;background:#c8bfa8}
+.style-thumb span{display:block;font-size:9px;padding:3px 4px;background:var(--parch);color:var(--ink);text-align:center;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.style-thumb:hover{border-color:var(--muted)}
+.style-thumb.active{border-color:var(--moss)}
+.style-thumb.active span{background:var(--moss);color:white;font-weight:500}
+
+/* ── Footer ────────────────────────────────────────────────── */
+.ftr{padding:10px 18px;font-size:10px;color:var(--muted);line-height:1.6;margin-top:auto;border-top:1px solid #d9d0be;background:var(--parch)}
+.ftr a{color:var(--moss);text-decoration:none}
+
+/* ── Map container ─────────────────────────────────────────── */
+#map{flex:1;position:relative}
+
+/* ── Leaflet controls ──────────────────────────────────────── */
+.leaflet-control-zoom{border:1px solid #c8bfa8 !important}
+.leaflet-control-zoom a{color:var(--forest) !important;background:var(--cream) !important}
+.leaflet-control-attribution{font-size:9px !important;background:rgba(247,243,236,.85) !important}
+
+/* ── PDF Export panel ──────────────────────────────────────── */
+#pdfPanel .pdf-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink);margin-bottom:4px;line-height:1.4}
+#pdfPanel .pdf-row > span{min-width:40px}
+#pdfPanel select{flex:1;padding:4px 6px;font-size:11px;border:1px solid #c8bfa8;border-radius:4px;background:white;font-family:'DM Sans',sans-serif;color:var(--ink)}
+#pdfPanel input[type="checkbox"]{accent-color:var(--moss);margin:0}
+#pdfPanel button{width:100%;margin-top:6px;padding:6px 10px;background:var(--forest);color:white;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500}
+#pdfPanel button:hover:not(:disabled){background:var(--moss)}
+#pdfPanel button:disabled{background:#b0a797;cursor:not-allowed}
+#pdfStatus{margin-top:6px;font-size:10px;color:var(--muted);min-height:14px;line-height:1.4}
+.pdf-hint{font-size:10px;color:var(--muted);line-height:1.4;margin:4px 0 2px;font-style:italic}
+
+/* ── Advanced disclosure ───────────────────────────────────── */
+.adv-summary{cursor:pointer;list-style:none;user-select:none}
+.adv-summary::-webkit-details-marker{display:none}
+.adv-summary::before{content:'\25B8 ';color:var(--muted);display:inline-block;margin-right:3px;transition:transform .15s}
+#advancedPanel[open] .adv-summary::before{transform:rotate(90deg)}
+
+/* ── Draggable selection rectangle ─────────────────────────── */
+.leaflet-interactive.pdf-selection-rect{cursor:move}
