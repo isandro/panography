@@ -452,15 +452,29 @@
   }
 
   // ── POIs ───────────────────────────────────────────────────────
+  // ── POIs ───────────────────────────────────────────────────────
+  // Water: springs, drinking-water taps, fountains, hand-dug wells,
+  // the occasional geyser. OSM tagging for potability is very uneven,
+  // so we expose it as a tier (verified / unknown / marked-unsafe) and
+  // flag seasonal/intermittent sources.
   async function fetchPois(bounds, water, landmarks) {
     var kinds = [];
-    if (water)     kinds.push('"natural"="spring"', '"amenity"="drinking_water"');
-    if (landmarks) kinds.push('"natural"="peak"', '"tourism"="viewpoint"', '"tourism"="alpine_hut"', '"amenity"="shelter"');
+    if (water) kinds.push(
+      '"natural"="spring"',
+      '"amenity"="drinking_water"',
+      '"amenity"="fountain"',
+      '"man_made"="water_well"',
+      '"natural"="geyser"'
+    );
+    if (landmarks) kinds.push(
+      '"natural"="peak"', '"tourism"="viewpoint"',
+      '"tourism"="alpine_hut"', '"amenity"="shelter"'
+    );
     if (!kinds.length) return [];
     var bb = bounds.getSouth() + ',' + bounds.getWest() + ',' + bounds.getNorth() + ',' + bounds.getEast();
     var q = '[out:json][timeout:30];(' + kinds.map(function (k) {
       return 'node[' + k + '](' + bb + ');way[' + k + '](' + bb + ');';
-    }).join('') + ');out center;';
+    }).join('') + ');out center tags;';
     try {
       var r = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
@@ -473,48 +487,170 @@
         var lon = el.lon != null ? el.lon : (el.center && el.center.lon);
         if (lat == null || lon == null) return null;
         var t = el.tags || {};
-        var kind = 'other', label = t.name || '';
-        if (t.natural === 'spring')             kind = 'spring';
-        else if (t.amenity === 'drinking_water') kind = 'water';
-        else if (t.natural === 'peak')           { kind = 'peak'; label = (t.name || 'Peak') + (t.ele ? ' ' + Math.round(parseFloat(t.ele)) + 'm' : ''); }
-        else if (t.tourism === 'viewpoint')      kind = 'viewpoint';
-        else if (t.tourism === 'alpine_hut')     kind = 'hut';
-        else if (t.amenity === 'shelter')        kind = 'shelter';
-        return { lat: lat, lon: lon, kind: kind, label: label };
+        var kind = 'other', name = t.name || '';
+
+        // Water family
+        var waterKinds = { spring: 'spring', water_well: 'well', fountain: 'fountain', drinking_water: 'drinking', geyser: 'spring' };
+        if (t.natural === 'spring')                 kind = 'spring';
+        else if (t.natural === 'geyser')            kind = 'spring';
+        else if (t.amenity === 'drinking_water')    kind = 'drinking';
+        else if (t.amenity === 'fountain')          kind = 'fountain';
+        else if (t.man_made === 'water_well')       kind = 'well';
+        // Landmarks
+        else if (t.natural === 'peak')      { kind = 'peak';      name = (t.name || 'Peak') + (t.ele ? ' ' + Math.round(parseFloat(t.ele)) + 'm' : ''); }
+        else if (t.tourism === 'viewpoint')          kind = 'viewpoint';
+        else if (t.tourism === 'alpine_hut')         kind = 'hut';
+        else if (t.amenity === 'shelter')            kind = 'shelter';
+
+        var isWater = kind === 'spring' || kind === 'well' || kind === 'fountain' || kind === 'drinking';
+        var potability = 'unknown';
+        if (isWater) {
+          if (t.drinking_water === 'yes' || kind === 'drinking') potability = 'yes';
+          else if (t.drinking_water === 'no') potability = 'no';
+          // Fountains default to unknown unless explicitly tagged
+        }
+        var reliability = 'unknown';
+        if (t.seasonal === 'yes' || t.intermittent === 'yes') reliability = 'seasonal';
+
+        return {
+          lat: lat, lon: lon, kind: kind, name: name,
+          potability: potability, reliability: reliability,
+          ele: t.ele ? Math.round(parseFloat(t.ele)) : null,
+          source: 'osm', osmId: (el.type || 'node') + '/' + el.id
+        };
       }).filter(Boolean);
     } catch (e) { return []; }
   }
 
+  // Load user-curated springs from data/water-sources.json. Each entry
+  // appears alongside OSM data with a distinct star marker so you can
+  // tell at a glance that it's your personally-verified list.
+  async function fetchCustomSources(bounds) {
+    try {
+      var r = await fetch('data/water-sources.json', { cache: 'no-cache' });
+      if (!r.ok) return [];
+      var data = await r.json();
+      var list = (data && data.sources) || [];
+      return list
+        .filter(function (s) {
+          return s && typeof s.lat === 'number' && typeof s.lon === 'number'
+            && bounds.contains([s.lat, s.lon]);
+        })
+        .map(function (s) {
+          return {
+            lat: s.lat, lon: s.lon,
+            kind: s.type || 'spring',
+            name: s.name || '',
+            potability: s.potability === 'verified' || s.potability === 'verified-personal' ? 'yes'
+                      : s.potability === 'unsafe' ? 'no' : 'unknown',
+            reliability: s.reliability || 'unknown',
+            ele: s.ele || null,
+            source: 'custom', note: s.note || ''
+          };
+        });
+    } catch (e) { return []; }
+  }
+
+  // ── POI RENDERING ──────────────────────────────────────────────
   function drawPois(ctx, comp, pois) {
-    var color = {
-      spring: '#2563eb', water: '#1d4ed8',
+    var landmarkCol = {
       peak: '#92400e', viewpoint: '#0e7490',
-      hut: '#be123c', shelter: '#9f1239',
-      other: '#555'
+      hut: '#be123c', shelter: '#9f1239'
     };
-    var sym = { spring: '◉', water: '▽', peak: '▲', viewpoint: '◆', hut: '■', shelter: '■' };
-    var sz = Math.round(comp.pxPerMm * 2.2);
+    var landmarkSym = { peak: '▲', viewpoint: '◆', hut: '■', shelter: '■' };
+
+    var sz    = Math.round(comp.pxPerMm * 2.2);   // base symbol size
+    var fsz   = Math.round(comp.pxPerMm * 1.7);   // label font size
+    var large = Math.round(comp.pxPerMm * 2.8);   // named / verified springs
+
+    function drawLabel(x, y, text, offsetX, bold) {
+      ctx.save();
+      ctx.font = (bold ? 'bold ' : '') + fsz + 'px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      var w = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillRect(x + offsetX, y - fsz * 0.7, w + fsz * 0.3, fsz * 1.4);
+      ctx.fillStyle = '#111';
+      ctx.fillText(text, x + offsetX + fsz * 0.2, y);
+      ctx.restore();
+    }
+
+    function drawWaterMarker(x, y, p) {
+      var named = !!p.name;
+      var potable = p.potability === 'yes';
+      var unsafe  = p.potability === 'no';
+      var seasonal = p.reliability === 'seasonal';
+      var isCustom = p.source === 'custom';
+
+      // Pick base colour.
+      var fill = unsafe ? '#b91c1c' : (potable ? '#1d4ed8' : '#3b82f6');
+      var stroke = unsafe ? '#7f1d1d' : (potable ? '#1e3a8a' : '#1e40af');
+      var r = (named || potable || isCustom) ? large * 0.55 : sz * 0.42;
+
+      ctx.save();
+      // Halo
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(x, y, r + 1.5, 0, Math.PI * 2); ctx.fill();
+
+      // Body — solid for named/verified/custom, hollow for unnamed OSM
+      if (named || potable || isCustom || unsafe) {
+        ctx.fillStyle = fill;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = seasonal ? 2.5 : 1.8;
+      if (seasonal) ctx.setLineDash([3, 2]);
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Inner mark
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (isCustom) {
+        // ★ denotes a user-curated source
+        ctx.font = 'bold ' + Math.round(r * 1.5) + 'px sans-serif';
+        ctx.fillText('★', x, y + 0.5);
+      } else if (p.kind === 'spring' || p.kind === 'drinking') {
+        // droplet (little filled teardrop approximated by a circle + dot)
+        ctx.font = 'bold ' + Math.round(r * 1.2) + 'px sans-serif';
+        ctx.fillText(potable ? 'D' : '~', x, y + 0.5);
+      } else if (p.kind === 'well') {
+        ctx.font = 'bold ' + Math.round(r * 1.1) + 'px sans-serif';
+        ctx.fillText('W', x, y + 0.5);
+      } else if (p.kind === 'fountain') {
+        ctx.font = 'bold ' + Math.round(r * 1.1) + 'px sans-serif';
+        ctx.fillText('F', x, y + 0.5);
+      }
+      ctx.restore();
+
+      // Label: named sources get the name (+ elevation if known).
+      if (named) {
+        var label = p.name + (p.ele ? ' ' + p.ele + 'm' : '');
+        drawLabel(x, y, label, r + 2, isCustom || potable);
+      }
+    }
+
+    function drawLandmarkMarker(x, y, p) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(x, y, sz * 0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = landmarkCol[p.kind] || '#555';
+      ctx.font = 'bold ' + sz + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(landmarkSym[p.kind] || '•', x, y);
+      ctx.restore();
+      if (p.name) drawLabel(x, y, p.name, sz * 0.8, false);
+    }
+
     pois.forEach(function (p) {
       var x = comp.toX(p.lon), y = comp.toY(p.lat);
       if (x < 0 || x > comp.pxW || y < 0 || y > comp.pxH) return;
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.beginPath(); ctx.arc(x, y, sz * 0.6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = color[p.kind] || color.other;
-      ctx.font = 'bold ' + sz + 'px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(sym[p.kind] || '•', x, y);
-      if (p.label) {
-        var fsz = Math.round(comp.pxPerMm * 1.6);
-        ctx.font = fsz + 'px sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        var w = ctx.measureText(p.label).width;
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.fillRect(x + sz * 0.7, y - fsz * 0.7, w + sz * 0.4, fsz * 1.4);
-        ctx.fillStyle = '#111';
-        ctx.fillText(p.label, x + sz * 0.9, y);
-      }
-      ctx.restore();
+      var isWater = p.kind === 'spring' || p.kind === 'well'
+                 || p.kind === 'fountain' || p.kind === 'drinking';
+      if (isWater) drawWaterMarker(x, y, p);
+      else drawLandmarkMarker(x, y, p);
     });
   }
 
@@ -524,7 +660,14 @@
     if (trailsDrawn && trailsDrawn.gr) items.push({ kind: 'line', color: TRAIL_COL_GR, text: 'GR — long-distance route' });
     if (trailsDrawn && trailsDrawn.pr) items.push({ kind: 'line', color: TRAIL_COL_PR, text: 'PR / local hiking route' });
     if (contoursDrawn) items.push({ kind: 'contour', text: 'Contour, every ' + opts.contour + ' m' });
-    if (opts.water)     items.push({ kind: 'spring',    text: 'Water source' });
+    if (opts.water) {
+      items.push({ kind: 'water-custom',  text: '★ Verified source (local list)' });
+      items.push({ kind: 'water-potable', text: 'Potable (OSM drinking_water=yes)' });
+      items.push({ kind: 'water-named',   text: 'Named spring / fountain' });
+      items.push({ kind: 'water-unknown', text: 'Unnamed source' });
+      items.push({ kind: 'water-unsafe',  text: 'Marked non-potable' });
+      items.push({ kind: 'note',          text: 'Dashed: seasonal / may be dry' });
+    }
     if (opts.landmarks) {
       items.push({ kind: 'peak',      text: 'Peak' });
       items.push({ kind: 'viewpoint', text: 'Viewpoint' });
@@ -534,9 +677,10 @@
 
     var x = MARGIN_LEFT + 2;
     var y = MARGIN_TOP + 2;
-    var w = 52;
+    var w = 60;
     var rowH = 4.2;
-    var h = 7 + items.length * rowH;
+    var disclaimerH = opts.water ? 7 : 0;
+    var h = 7 + items.length * rowH + disclaimerH;
     pdf.setFillColor(255, 255, 255);
     pdf.setDrawColor(60, 60, 60);
     pdf.setLineWidth(0.3);
@@ -562,9 +706,34 @@
         pdf.setDrawColor('#8B5A2B');
         pdf.setLineWidth(0.35);
         pdf.line(sx, sy, sx + 7, sy);
-      } else if (item.kind === 'spring') {
-        pdf.setFillColor('#2563eb');
-        pdf.circle(sx + 3.5, sy, 1.1, 'F');
+      } else if (item.kind === 'water-custom') {
+        pdf.setFillColor('#1d4ed8');
+        pdf.circle(sx + 3.5, sy, 1.4, 'F');
+        pdf.setTextColor('#ffffff');
+        pdf.setFont(undefined, 'bold');
+        pdf.setFontSize(6);
+        pdf.text('*', sx + 3.5, sy + 0.9, { align: 'center' });
+        pdf.setFontSize(7);
+        pdf.setFont(undefined, 'normal');
+      } else if (item.kind === 'water-potable') {
+        pdf.setFillColor('#1d4ed8');
+        pdf.circle(sx + 3.5, sy, 1.3, 'F');
+      } else if (item.kind === 'water-named') {
+        pdf.setFillColor('#3b82f6');
+        pdf.circle(sx + 3.5, sy, 1.2, 'F');
+      } else if (item.kind === 'water-unknown') {
+        pdf.setDrawColor('#1e40af');
+        pdf.setLineWidth(0.4);
+        pdf.circle(sx + 3.5, sy, 1.0, 'S');
+      } else if (item.kind === 'water-unsafe') {
+        pdf.setFillColor('#b91c1c');
+        pdf.circle(sx + 3.5, sy, 1.2, 'F');
+      } else if (item.kind === 'note') {
+        pdf.setDrawColor('#1e40af');
+        pdf.setLineWidth(0.4);
+        pdf.setLineDashPattern([0.7, 0.5], 0);
+        pdf.circle(sx + 3.5, sy, 1.2, 'S');
+        pdf.setLineDashPattern([], 0);
       } else if (item.kind === 'peak') {
         pdf.setFillColor('#92400e');
         pdf.triangle(sx + 3.5, sy - 1.3, sx + 2.2, sy + 0.8, sx + 4.8, sy + 0.8, 'F');
@@ -578,8 +747,19 @@
         pdf.rect(sx + 2.4, sy - 1.1, 2.2, 2.2, 'F');
       }
       pdf.setTextColor(20, 20, 20);
-      pdf.text(item.text, x + 12, iy);
+      pdf.text(item.text, x + 10, iy);
     });
+
+    // Water-safety disclaimer footer in the legend box.
+    if (opts.water) {
+      var dy = y + 7 + items.length * rowH + 2;
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(80, 80, 80);
+      pdf.setFont(undefined, 'italic');
+      pdf.text('Sources may be seasonal, dry or unsafe.', x + 2, dy);
+      pdf.text('Always treat water before drinking.',      x + 2, dy + 2.5);
+      pdf.setFont(undefined, 'normal');
+    }
   }
 
   function drawNorthArrow(pdf) {
@@ -667,6 +847,10 @@
     if (opts.water || opts.landmarks) {
       statusEl.textContent = 'Fetching water & landmarks…';
       var pois = await fetchPois(bounds, opts.water, opts.landmarks);
+      if (opts.water) {
+        var custom = await fetchCustomSources(bounds);
+        pois = pois.concat(custom);
+      }
       drawPois(ctx, comp, pois);
     }
 

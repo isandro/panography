@@ -1,0 +1,14 @@
+{
+  "_schema": "User-curated water-source overrides. Rendered with a star marker so they stand out from OSM data. Fields per entry: lat (number), lon (number), name (string), type (spring|well|fountain|drinking, default spring), potability (verified|verified-personal|unsafe|unknown, default unknown), reliability (year-round|seasonal|unknown, default unknown), ele (number, metres), note (string). Only entries inside the current A4 selection are drawn.",
+  "sources": [
+    {
+      "lat": 51.6586,
+      "lon": 9.6386,
+      "name": "Lunauborn",
+      "type": "spring",
+      "potability": "verified-personal",
+      "reliability": "year-round",
+      "note": "Drinking cups on site. Listed on several hiking websites as a reliable source. Treat before drinking anyway. Verify coordinates against local signage (these are approximate — update if your GPS disagrees)."
+    }
+  ]
+}
