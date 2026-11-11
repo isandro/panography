@@ -522,12 +522,12 @@
     } catch (e) { return []; }
   }
 
-  // Load user-curated springs from data/water-sources.json. Each entry
+  // Load user-curated springs from water-sources.json. Each entry
   // appears alongside OSM data with a distinct star marker so you can
   // tell at a glance that it's your personally-verified list.
   async function fetchCustomSources(bounds) {
     try {
-      var r = await fetch('data/water-sources.json', { cache: 'no-cache' });
+      var r = await fetch('water-sources.json', { cache: 'no-cache' });
       if (!r.ok) return [];
       var data = await r.json();
       var list = (data && data.sources) || [];

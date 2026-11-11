@@ -30,7 +30,7 @@ no build step is required.
   - Water sources (springs, drinking water, fountains, wells) with
     tiered markers (verified-potable, named-unknown, unnamed, marked
     non-potable, seasonal). User-curated sources in
-    `data/water-sources.json` render with a **★ star + name** marker to
+    `water-sources.json` render with a **★ star + name** marker to
     distinguish them from OSM data. Legend carries a treatment disclaimer.
   - Landmarks (peaks, viewpoints, huts, shelters) from Overpass.
 - **Paper furniture**: north arrow, legend box listing only what's drawn,
@@ -52,7 +52,7 @@ in the footer.
 
 OSM's water-source tagging is uneven — plenty of real, reliable springs
 have no `drinking_water=yes` tag (or no entry at all). Edit
-`data/water-sources.json` to add your personally-verified sources. They
+`water-sources.json` to add your personally-verified sources. They
 render with a **★ star** marker so you can see at a glance which came
 from your own list versus OSM.
 

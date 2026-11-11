@@ -5,7 +5,7 @@
 // opens a popup with the OSM tags and one-click search links to the
 // platforms you'd actually use to verify a source: AllTrails, Komoot,
 // Wikipedia, Google Maps, plain Google. Custom sources from
-// data/water-sources.json get a ★ marker and are always shown.
+// water-sources.json get a ★ marker and are always shown.
 //
 // Nothing here touches the PDF. The PDF still uses the simpler static
 // version in pdf-export.js.
@@ -246,7 +246,7 @@
   // ── CUSTOM SOURCES (JSON) ──────────────────────────────────────
   async function loadCustomSources() {
     if (customSourcesPromise) return customSourcesPromise;
-    customSourcesPromise = fetch('data/water-sources.json', { cache: 'no-cache' })
+    customSourcesPromise = fetch('water-sources.json', { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : { sources: [] }; })
       .then(function (data) {
         return ((data && data.sources) || []).map(function (s) {
