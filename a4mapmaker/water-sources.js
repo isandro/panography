@@ -19,6 +19,43 @@
   var inflight = null;
   var minZoom = 12;
 
+  // Multiple Overpass mirrors — try in order, first success wins. The main
+  // overpass-api.de endpoint is often congested (502s), so we fall over
+  // automatically to Kumi and the private.coffee mirror.
+  var OVERPASS_MIRRORS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+  ];
+
+  async function overpassFetch(query, timeoutMs) {
+    timeoutMs = timeoutMs || 25000;
+    var lastErr = null;
+    for (var i = 0; i < OVERPASS_MIRRORS.length; i++) {
+      var mirror = OVERPASS_MIRRORS[i];
+      var controller = new AbortController();
+      var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
+      try {
+        var r = await fetch(mirror, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (r.ok) return await r.json();
+        lastErr = 'HTTP ' + r.status;
+        console.warn('Overpass ' + mirror + ' returned ' + r.status + ', trying next…');
+      } catch (e) {
+        clearTimeout(timeout);
+        lastErr = (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed');
+        console.warn('Overpass ' + mirror + ' failed: ' + lastErr + ', trying next…');
+      }
+    }
+    throw new Error('All Overpass mirrors failed: ' + lastErr);
+  }
+
   // ── MARKER STYLE ───────────────────────────────────────────────
   // Match the PDF tiers so the on-screen view matches what will print.
   function markerFor(lat, lon, record) {
@@ -227,23 +264,12 @@
           + 'node["man_made"="water_well"](' + bb + ');'
           + 'node["natural"="geyser"](' + bb + ');'
           + ');out tags;';
-    var controller = new AbortController();
-    var timeout = setTimeout(function () { controller.abort(); }, 25000);
     try {
-      var r = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      var data = await r.json();
+      var data = await overpassFetch(q, 25000);
       return { records: (data.elements || []).map(tagsToRecord), error: null };
     } catch (e) {
-      clearTimeout(timeout);
-      console.warn('Water-sources OSM fetch failed:', e);
-      return { records: [], error: (e && e.name === 'AbortError') ? 'Overpass timeout' : (e && e.message) || 'fetch failed' };
+      console.warn('Water-sources OSM fetch failed on all mirrors:', e);
+      return { records: [], error: (e && e.message) || 'all mirrors failed' };
     }
   }
 

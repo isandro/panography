@@ -387,19 +387,47 @@
     return true;
   }
 
+  // ── OVERPASS (with mirror fallback) ────────────────────────────
+  var OVERPASS_MIRRORS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+  ];
+  async function overpassFetch(query, timeoutMs) {
+    timeoutMs = timeoutMs || 30000;
+    var lastErr = null;
+    for (var i = 0; i < OVERPASS_MIRRORS.length; i++) {
+      var mirror = OVERPASS_MIRRORS[i];
+      var controller = new AbortController();
+      var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
+      try {
+        var r = await fetch(mirror, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (r.ok) return await r.json();
+        lastErr = 'HTTP ' + r.status;
+        console.warn('Overpass ' + mirror + ' returned ' + r.status + ', trying next…');
+      } catch (e) {
+        clearTimeout(timeout);
+        lastErr = (e && e.name === 'AbortError') ? 'timeout' : ((e && e.message) || 'fetch failed');
+        console.warn('Overpass ' + mirror + ' failed: ' + lastErr + ', trying next…');
+      }
+    }
+    throw new Error('All Overpass mirrors failed: ' + lastErr);
+  }
+
   // ── TRAILS (fetched per selection bbox) ───────────────────────
   async function fetchTrails(bounds) {
     var bb = bounds.getSouth() + ',' + bounds.getWest() + ',' + bounds.getNorth() + ',' + bounds.getEast();
     var q = '[out:json][timeout:30];'
       + '(relation["route"="hiking"](' + bb + '););out geom;';
     try {
-      var r = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q)
-      });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      var data = await r.json();
+      var data = await overpassFetch(q, 30000);
       var gr = [], pr = [];
       (data.elements || []).forEach(function (rel) {
         var ref = (rel.tags && (rel.tags.ref || '')) || '';
@@ -412,7 +440,7 @@
       });
       return { gr: gr, pr: pr };
     } catch (e) {
-      console.warn('Trail fetch failed', e);
+      console.warn('Trail fetch failed on all mirrors', e);
       return { gr: [], pr: [] };
     }
   }
@@ -476,12 +504,7 @@
       return 'node[' + k + '](' + bb + ');way[' + k + '](' + bb + ');';
     }).join('') + ');out center tags;';
     try {
-      var r = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q)
-      });
-      var data = await r.json();
+      var data = await overpassFetch(q, 25000);
       return (data.elements || []).map(function (el) {
         var lat = el.lat != null ? el.lat : (el.center && el.center.lat);
         var lon = el.lon != null ? el.lon : (el.center && el.center.lon);
