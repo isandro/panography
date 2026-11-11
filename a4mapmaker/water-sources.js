@@ -55,7 +55,54 @@
     return m;
   }
 
-  // ── POPUP CONTENT ──────────────────────────────────────────────
+  // ── REGIONAL LINK SETS ─────────────────────────────────────────
+  // Country detection is a cheap bounding-box check. It's intentionally
+  // loose at borders (Alsace returns both FR and DE, Alto Adige returns
+  // IT and AT), so you get the full set of platforms a local hiker would
+  // reasonably consult. Countries you care about: DE, FR, IT, CH, AT.
+  function detectCountries(lat, lon) {
+    var c = [];
+    if (lat >= 41.3 && lat <= 51.1 && lon >= -5.2 && lon <= 8.3)  c.push('FR');
+    if (lat >= 47.3 && lat <= 55.1 && lon >=  5.9 && lon <= 15.0) c.push('DE');
+    if (lat >= 45.8 && lat <= 47.9 && lon >=  5.9 && lon <= 10.6) c.push('CH');
+    if (lat >= 46.3 && lat <= 49.0 && lon >=  9.5 && lon <= 17.2) c.push('AT');
+    if (lat >= 36.6 && lat <= 47.1 && lon >=  6.6 && lon <= 18.5) c.push('IT');
+    return c;
+  }
+
+  // Build regional search links given a record. Each entry is {text, url}.
+  // Prefers direct per-platform searches; falls back to Google site-search
+  // when a platform doesn't offer a stable deep link.
+  function regionalLinks(record) {
+    var countries = detectCountries(record.lat, record.lon);
+    var name = record.name || '';
+    var q = encodeURIComponent(name || record.kind);
+    var lat = record.lat.toFixed(5), lon = record.lon.toFixed(5);
+    var out = [];
+
+    if (countries.indexOf('FR') >= 0) {
+      out.push({ text: 'IGN Géoportail (FR)', url: 'https://www.geoportail.gouv.fr/carte?c=' + lon + ',' + lat + '&z=16&l0=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR%3A%3AGEOPORTAIL%3AOGC%3AWMTS(1)&permalink=yes' });
+      out.push({ text: 'Visorando (FR)', url: 'https://www.visorando.com/recherche.html?requete=' + q });
+      out.push({ text: 'Refuges.info',   url: 'https://www.refuges.info/nav/map/' + lat + '/' + lon + '/14' });
+    }
+    if (countries.indexOf('DE') >= 0 || countries.indexOf('AT') >= 0 || countries.indexOf('IT') >= 0) {
+      out.push({ text: 'Outdooractive', url: 'https://www.outdooractive.com/en/search/-/?searchText=' + q });
+    }
+    if (countries.indexOf('AT') >= 0 || countries.indexOf('DE') >= 0 || countries.indexOf('IT') >= 0) {
+      out.push({ text: 'Alpenvereinaktiv', url: 'https://www.alpenvereinaktiv.com/en/search/-/?searchText=' + q });
+    }
+    if (countries.indexOf('CH') >= 0 || countries.indexOf('IT') >= 0 || countries.indexOf('FR') >= 0 || countries.indexOf('AT') >= 0) {
+      // Camptocamp is Alps-focused (CH/IT/FR-Alps/AT); shown for all four.
+      out.push({ text: 'Camptocamp (Alps)', url: 'https://www.camptocamp.org/waypoints?q=' + q });
+    }
+    if (countries.indexOf('CH') >= 0) {
+      // swisstopo's viewer takes WGS84 when E/N are given with wgs84=true.
+      out.push({ text: 'map.geo.admin.ch (CH)', url: 'https://map.geo.admin.ch/?lang=en&zoom=10&E=' + lon + '&N=' + lat + '&crosshair=marker&wgs84=true' });
+    }
+
+    return out;
+  }
+
   // Build the search links. The query prefers the name; falls back to
   // "spring near {lat,lon}" so AllTrails/Komoot searches still work.
   function popupHtml(record) {
@@ -111,17 +158,29 @@
       var wp = record.wikipedia.indexOf(':') > 0 ? record.wikipedia.split(':') : ['en', record.wikipedia];
       links.unshift({ text: 'Wikipedia article', url: 'https://' + wp[0] + '.wikipedia.org/wiki/' + encodeURIComponent(wp.slice(1).join(':')) });
     }
+    // Country-specific hiking platforms (DE / FR / CH / AT / IT).
+    var regional = regionalLinks(record);
 
-    var linksHtml = links.map(function (l) {
-      return '<a href="' + l.url + '" target="_blank" rel="noopener">' + l.text + '</a>';
-    }).join('');
+    var seen = {};
+    function renderLinkGroup(list, heading) {
+      if (!list.length) return '';
+      var items = list
+        .filter(function (l) { if (seen[l.url]) return false; seen[l.url] = true; return true; })
+        .map(function (l) {
+          return '<a href="' + l.url + '" target="_blank" rel="noopener">' + escape(l.text) + '</a>';
+        }).join('');
+      if (!items) return '';
+      return (heading ? '<div class="ws-links-heading">' + heading + '</div>' : '')
+        + '<div class="ws-links">' + items + '</div>';
+    }
 
     return ''
       + '<div class="ws-popup">'
       +   '<h4>' + escape(displayName) + '</h4>'
       +   '<div class="ws-meta">' + meta.join('') + '</div>'
       +   descBlock
-      +   '<div class="ws-links">' + linksHtml + '</div>'
+      +   renderLinkGroup(regional, 'Regional')
+      +   renderLinkGroup(links, regional.length ? 'Global' : null)
       + '</div>';
   }
 
