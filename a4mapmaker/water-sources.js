@@ -15,7 +15,6 @@
 
   var enabled = false;
   var markersLayer = null;
-  var customSourcesPromise = null;
   var fetchTimer = null;
   var inflight = null;
   var minZoom = 12;
@@ -221,73 +220,96 @@
 
   async function fetchOsmWaterSources(bounds) {
     var bb = bounds.getSouth() + ',' + bounds.getWest() + ',' + bounds.getNorth() + ',' + bounds.getEast();
-    var q = '[out:json][timeout:30];('
+    var q = '[out:json][timeout:25];('
           + 'node["natural"="spring"](' + bb + ');'
           + 'node["amenity"="drinking_water"](' + bb + ');'
           + 'node["amenity"="fountain"](' + bb + ');'
           + 'node["man_made"="water_well"](' + bb + ');'
           + 'node["natural"="geyser"](' + bb + ');'
           + ');out tags;';
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 25000);
     try {
       var r = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(q)
+        body: 'data=' + encodeURIComponent(q),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var data = await r.json();
-      return (data.elements || []).map(tagsToRecord);
+      return { records: (data.elements || []).map(tagsToRecord), error: null };
     } catch (e) {
-      console.warn('Water-sources fetch failed', e);
-      return [];
+      clearTimeout(timeout);
+      console.warn('Water-sources OSM fetch failed:', e);
+      return { records: [], error: (e && e.name === 'AbortError') ? 'Overpass timeout' : (e && e.message) || 'fetch failed' };
     }
   }
 
   // ── CUSTOM SOURCES (JSON) ──────────────────────────────────────
+  // Not cached: if the fetch stalls or fails the next refresh must be
+  // able to retry.
   async function loadCustomSources() {
-    if (customSourcesPromise) return customSourcesPromise;
-    customSourcesPromise = fetch('water-sources.json', { cache: 'no-cache' })
-      .then(function (r) { return r.ok ? r.json() : { sources: [] }; })
-      .then(function (data) {
-        return ((data && data.sources) || []).map(function (s) {
-          return {
-            lat: s.lat, lon: s.lon,
-            kind: s.type || 'spring',
-            name: s.name || '',
-            potability: s.potability === 'verified' || s.potability === 'verified-personal' ? 'yes'
-                      : s.potability === 'unsafe' ? 'no' : 'unknown',
-            reliability: s.reliability === 'seasonal' ? 'seasonal' : 'unknown',
-            ele: s.ele || null,
-            note: s.note || '',
-            source: 'custom',
-          };
-        });
-      })
-      .catch(function () { return []; });
-    return customSourcesPromise;
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 6000);
+    try {
+      var r = await fetch('water-sources.json', { cache: 'no-cache', signal: controller.signal });
+      clearTimeout(timeout);
+      if (!r.ok) return [];
+      var data = await r.json();
+      return ((data && data.sources) || []).map(function (s) {
+        return {
+          lat: s.lat, lon: s.lon,
+          kind: s.type || 'spring',
+          name: s.name || '',
+          potability: s.potability === 'verified' || s.potability === 'verified-personal' ? 'yes'
+                    : s.potability === 'unsafe' ? 'no' : 'unknown',
+          reliability: s.reliability === 'seasonal' ? 'seasonal' : 'unknown',
+          ele: s.ele || null,
+          note: s.note || '',
+          source: 'custom',
+        };
+      });
+    } catch (e) {
+      clearTimeout(timeout);
+      console.warn('Custom water-sources fetch failed:', e);
+      return [];
+    }
   }
 
   // ── RENDER ─────────────────────────────────────────────────────
   async function refresh(statusEl) {
     if (!enabled) return;
-    if (inflight) return; // one at a time
+    if (inflight) return;                        // one at a time
     if (map.getZoom() < minZoom) {
       if (statusEl) statusEl.textContent = 'Zoom in (≥ ' + minZoom + ') to show sources.';
       if (markersLayer) { map.removeLayer(markersLayer); markersLayer = null; }
       return;
     }
     if (statusEl) statusEl.textContent = 'Loading water sources…';
-    inflight = Promise.all([
-      fetchOsmWaterSources(map.getBounds()),
-      loadCustomSources()
-    ]).then(function (parts) {
-      var osm = parts[0], custom = parts[1];
-      // Only render custom sources that fall inside the viewport.
-      var b = map.getBounds();
-      custom = custom.filter(function (s) { return b.contains([s.lat, s.lon]); });
-      renderMarkers(osm.concat(custom));
-      if (statusEl) statusEl.textContent = osm.length + ' OSM + ' + custom.length + ' custom.';
-    }).finally(function () { inflight = null; });
+
+    inflight = (async function () {
+      try {
+        var osmResult = await fetchOsmWaterSources(map.getBounds());
+        var custom = await loadCustomSources();
+        var b = map.getBounds();
+        var customInView = custom.filter(function (s) { return b.contains([s.lat, s.lon]); });
+        renderMarkers(osmResult.records.concat(customInView));
+        if (statusEl) {
+          var parts = [];
+          parts.push(osmResult.records.length + ' OSM');
+          if (osmResult.error) parts.push('(' + osmResult.error + ')');
+          parts.push(customInView.length + '/' + custom.length + ' custom in view');
+          statusEl.textContent = parts.join(' · ');
+        }
+      } catch (e) {
+        console.error('Water sources refresh failed:', e);
+        if (statusEl) statusEl.textContent = 'Error: ' + (e && e.message || e);
+      } finally {
+        inflight = null;
+      }
+    })();
     await inflight;
   }
 
