@@ -142,6 +142,7 @@ function initStylePicker() {
 function boot() {
   initStylePicker();
   if (typeof initSearch === 'function') initSearch();
+  if (typeof initWaterSources === 'function') initWaterSources();
   if (typeof initPdfExport === 'function') initPdfExport();
 }
 if (document.readyState === 'loading') {
