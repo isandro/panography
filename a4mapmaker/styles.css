@@ -39,6 +39,9 @@ h1{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--forest);l
 .leaflet-control-zoom a{color:var(--forest) !important;background:var(--cream) !important}
 .leaflet-control-attribution{font-size:9px !important;background:rgba(247,243,236,.85) !important}
 
+/* ── Zoom indicator ────────────────────────────────────────── */
+.zoom-indicator{background:rgba(247,243,236,.92);border:1px solid #c8bfa8;border-radius:4px;padding:3px 8px;font-size:11px;font-family:'DM Sans',sans-serif;color:var(--forest);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
 /* ── PDF Export panel ──────────────────────────────────────── */
 #pdfPanel .pdf-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink);margin-bottom:4px;line-height:1.4}
 #pdfPanel .pdf-row > span{min-width:40px}

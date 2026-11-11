@@ -24,6 +24,24 @@ map.on('moveend zoomend', function() {
   } catch (e) {}
 });
 
+// ── ZOOM INDICATOR ────────────────────────────────────────────────
+// Tiny bottom-left badge showing the current zoom. Useful because
+// features like the water-source layer gate on a minimum zoom.
+const ZoomDisplay = L.Control.extend({
+  options: { position: 'bottomleft' },
+  onAdd: function () {
+    this._div = L.DomUtil.create('div', 'zoom-indicator');
+    this._update();
+    return this._div;
+  },
+  _update: function () {
+    this._div.innerHTML = 'zoom ' + map.getZoom();
+  }
+});
+const zoomDisplay = new ZoomDisplay();
+zoomDisplay.addTo(map);
+map.on('zoomend', function () { zoomDisplay._update(); });
+
 // ── BASE LAYER REGISTRY ──────────────────────────────────────────
 // 10 global, key-free tile providers.
 const BASE_LAYERS = {
