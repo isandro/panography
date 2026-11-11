@@ -52,10 +52,10 @@ const BASE_LAYERS = {
     attribution: 'Map: © <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA) · Data: OSM, SRTM',
   },
   ign_scan25: {
-    name: 'IGN SCAN 25',
-    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR.CV&STYLE=normal&FORMAT=image%2Fjpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
-    maxZoom: 16,
-    attribution: '© <a href="https://www.ign.fr">IGN-F</a> / SCAN 25 TOUR (France only)',
+    name: 'IGN SCAN Express',
+    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image%2Fjpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    maxZoom: 18,
+    attribution: '© <a href="https://www.ign.fr">IGN-F</a> / SCAN Express Standard (France only)',
   },
   ign_plan: {
     name: 'IGN Plan v2',
